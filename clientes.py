@@ -1,16 +1,22 @@
-import customtkinter as ctk # Importa a biblioteca para criar a interface moderna
+import customtkinter as ctk # Biblioteca principal para a interface visual moderna
+import database # Importa o módulo local de banco de dados para persistência das informações
 
 # --- CLASSE PARA CADASTRO DE PESSOA FÍSICA ---
-class PessoaFisica(ctk.CTkFrame): # Cria a classe herdando de CTkFrame (funciona como uma tela container)
+# Esta classe herda de CTkFrame, tornando-se um "container" que pode ser acoplado na janela principal
+class PessoaFisica(ctk.CTkFrame): 
     def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs) # Inicializa o frame dentro da janela principal (master)
-        self.inputs = {} # Cria um dicionário vazio para armazenar as referências de cada campo de texto
+        # O construtor inicializa o Frame dentro do elemento 'master' (geralmente a Interface central)
+        super().__init__(master, **kwargs) 
+        # self.inputs armazena os objetos 'Entry' (caixas de texto) para que possamos ler os dados depois
+        self.inputs = {} 
 
     def abrir_fisica(self):
-        self.place(x=0, y=0, relwidth=1, relheight=1) # Posiciona o frame preenchendo toda a área disponível
-        self.configure(fg_color="white") # Define a cor de fundo desta tela como branco
+        # Define que o frame preencherá 100% da área disponível na interface central
+        self.place(x=0, y=0, relwidth=1, relheight=1) 
+        self.configure(fg_color="white") # Define o fundo da tela como branco
 
-        # Lista de Tuplas: Cada item contém (Texto do Label, Nome da Chave, Texto de Orientação)
+        # Estrutura de dados (Lista de Tuplas) para automação da criação dos campos
+        # Formato: (Rótulo visível, Chave para o dicionário, Mensagem interna/Placeholder)
         campos_pf = [
             ("Nome do Cliente:", "nome", "Digite o nome completo..."),
             ("CPF:", "cpf", "000.000.000-00"), 
@@ -24,45 +30,50 @@ class PessoaFisica(ctk.CTkFrame): # Cria a classe herdando de CTkFrame (funciona
             ("Email:", "email", "exemplo@email.com")
         ]
 
-        # Loop 'for' que percorre a lista para criar automaticamente os labels e campos
+        # Loop 'enumerate' para iterar sobre a lista e criar widgets dinamicamente
         for i, (txt, chave, msg) in enumerate(campos_pf):
-            # Cria o texto descritivo (Label)
-            label = ctk.CTkLabel(self, text=txt, font=("Arial", 16, "bold"), text_color="#145B06")
-            label.grid(row=i, column=0, padx=(10, 5), pady=5, sticky="w") # Posiciona à esquerda (w)
+            # Cria o Rótulo (Label) com fonte Arial, Negrito e cor verde escura
+            label = ctk.CTkLabel(self, text=txt, font=("Arial", 14, "bold"), text_color="#145B06")
+            # Posicionamento via GRID: 'row=i' garante que cada campo fique em uma linha nova
+            label.grid(row=i, column=0, padx=(10, 5), pady=3, sticky="w") 
 
-            # Cria a caixa de entrada de texto (Entry)
+            # Cria a Caixa de Entrada (Entry) com design arredondado (corner_radius=50)
             entry = ctk.CTkEntry(
-                self, width=400, height=40, font=("Arial", 16, "bold"),
-                placeholder_text=msg, # Define o texto que some ao digitar
+                self, width=400, height=40, font=("Arial", 14, "bold"),
+                placeholder_text=msg, 
                 fg_color="#F0F0F0", bg_color="white", border_width=0,
-                corner_radius=50, text_color="black" # Estilo arredondado e sem borda
+                corner_radius=50, text_color="black" 
             )
-            entry.grid(row=i, column=1, padx=5, pady=5, sticky="w") # Posiciona ao lado do label
-            self.inputs[chave] = entry # Guarda o objeto do campo no dicionário usando a 'chave'
+            # Posiciona a Entry na coluna 1, ao lado do Label correspondente
+            entry.grid(row=i, column=1, padx=5, pady=5, sticky="w") 
+            # Registra o widget no dicionário usando a 'chave' (ex: self.inputs['nome'] = entry)
+            self.inputs[chave] = entry 
 
-        # Cria o botão de ação para salvar
+        # Cria o botão SALVAR com efeito hover (muda de cor ao passar o mouse)
         self.btn_salvar = ctk.CTkButton(
-            self, text="SALVAR CLIENTE", fg_color="#2E8B57", hover_color="#145B06",
+            self, text="SALVAR", fg_color="#2E8B57", hover_color="#145B06",
             font=("Arial", 14, "bold"), corner_radius=50, command=self.salvar_pf
         )
-        # Posiciona o botão abaixo do último campo criado (row=len)
+        # Posiciona o botão na linha seguinte ao último campo (row=len(campos_pf))
         self.btn_salvar.grid(row=len(campos_pf), column=1, pady=20, sticky="e", padx=5)
 
     def salvar_pf(self):
-        # Captura o texto de cada campo e organiza em um novo dicionário de dados
+        # Dicionário por compreensão: Lê o conteúdo de cada Entry e associa à sua chave
         dados = {chave: input_field.get() for chave, input_field in self.inputs.items()}
         
-        # Exibe os dados capturados no terminal (console) para conferência
-        print(f"Salvando Pessoa Física com CPF: {dados}")
-
-        # Loop para limpar todos os campos após a coleta dos dados
+        # Envia o dicionário para a função de inserção no banco de dados SQLite
+        database.salvar_cliente_pf(dados) 
+        
+        # Limpa o texto de todos os campos após a gravação
         for input_field in self.inputs.values():
-            input_field.delete(0, 'end') # Apaga do índice 0 até o final
-            
-        self.inputs["nome"].focus() # Coloca o cursor de digitação de volta no primeiro campo
+            input_field.delete(0, 'end')
+        
+        # Devolve o foco do teclado para o primeiro campo (Nome) para agilizar o próximo cadastro
+        self.inputs["nome"].focus()
 
 # --- CLASSE PARA CADASTRO DE PESSOA JURÍDICA ---
-class PessoaJuridica(ctk.CTkFrame): # Segue a mesma lógica de herança da Pessoa Física
+# Segue a mesma lógica estrutural da Pessoa Física, mudando apenas os campos específicos
+class PessoaJuridica(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self.inputs = {}
@@ -71,10 +82,11 @@ class PessoaJuridica(ctk.CTkFrame): # Segue a mesma lógica de herança da Pesso
         self.place(x=0, y=0, relwidth=1, relheight=1)
         self.configure(fg_color="white")
 
-        # Lista de campos específicos para Empresas (PJ)
         campos_pj = [
-            ("Nome da Empresa:", "empresa", "Razão Social ou Nome Fantasia..."),
+            ("Nome da Empresa:", "empresa", "Razão Social da Empresa ..."),
+            ("Nome Fantasia:", "fantasia", "Nome Fantasia da Empresa..."),
             ("CNPJ:", "cnpj", "00.000.000/0000-00"),
+            ("INSCRIÇÃO:", "inscricao", "xxx.xxx.xx-x"),
             ("Endereço:", "logradouro", "Endereço comercial..."),
             ("Número:", "numero", "Nº"),
             ("Bairro:", "bairro", "Bairro..."),
@@ -85,35 +97,32 @@ class PessoaJuridica(ctk.CTkFrame): # Segue a mesma lógica de herança da Pesso
             ("Email:", "email", "email@empresa.com")
         ]
 
-        # Repete a criação dinâmica dos elementos visuais
+        # Processamento idêntico ao de PF para manter a identidade visual do sistema
         for i, (txt, chave, msg) in enumerate(campos_pj):
-            label = ctk.CTkLabel(self, text=txt, font=("Arial", 16, "bold"), text_color="#145B06")
-            label.grid(row=i, column=0, padx=(10, 5), pady=5, sticky="w")
+            label = ctk.CTkLabel(self, text=txt, font=("Arial", 14, "bold"), text_color="#145B06")
+            label.grid(row=i, column=0, padx=(10, 5), pady=3, sticky="w")
 
             entry = ctk.CTkEntry(
-                self, width=400, height=40, font=("Arial", 16, "bold"),
+                self, width=400, height=40, font=("Arial", 14, "bold"),
                 placeholder_text=msg, 
                 fg_color="#F0F0F0", bg_color="white", border_width=0,
                 corner_radius=50, text_color="black"
             )
-            entry.grid(row=i, column=1, padx=5, pady=5, sticky="w")
+            entry.grid(row=i, column=1, padx=5, pady=3, sticky="w")
             self.inputs[chave] = entry
 
-        # Botão de salvar para Pessoa Jurídica
         self.btn_salvar = ctk.CTkButton(
-            self, text="SALVAR EMPRESA", fg_color="#2E8B57", hover_color="#145B06",
+            self, text="SALVAR", fg_color="#2E8B57", hover_color="#145B06",
             font=("Arial", 14, "bold"), corner_radius=50, command=self.salvar_pj
         )
         self.btn_salvar.grid(row=len(campos_pj), column=1, pady=20, sticky="e", padx=5)
 
     def salvar_pj(self):
-        # Coleta os dados usando compreensão de dicionário
+        # Coleta dados, salva no banco de dados e limpa a interface de Pessoa Jurídica
         dados = {chave: input_field.get() for chave, input_field in self.inputs.items()}
+        database.salvar_cliente_pj(dados) 
         
-        print(f"Salvando Pessoa Jurídica: {dados}")
-
-        # Limpa todos os campos da tela de Pessoa Jurídica
         for input_field in self.inputs.values():
             input_field.delete(0, 'end') 
             
-        self.inputs["empresa"].focus() # Devolve o foco para o primeiro campo (Empresa)
+        self.inputs["empresa"].focus()
