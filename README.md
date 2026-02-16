@@ -1,30 +1,36 @@
 # Mundo do Autônomo 🛠️
-# Mundo do Autônomo 🛠️
 
-O **Mundo do Autônomo** é uma aplicação desktop desenvolvida em Python para auxiliar profissionais autônomos na gestão de seus negócios. O sistema oferece uma interface moderna e intuitiva para controle de clientes, produtos, ordens de serviço e financeiro.
+O **Mundo do Autônomo** é uma aplicação desktop moderna desenvolvida em Python para centralizar a gestão de profissionais autônomos. O foco é oferecer agilidade no cadastro e controle financeiro através de uma interface intuitiva.
 
-## 🚀 Funcionalidades Atuais
+## 🚀 Progresso Atual e Funcionalidades
 
-O software conta com um painel de navegação lateral que permite acessar os seguintes módulos:
+### ✅ Estrutura de Interface (Concluída)
+- **Navegação Dinâmica:** Sistema de troca de telas otimizado que limpa a interface central e carrega novos módulos sem abrir novas janelas.
+- **Identidade Visual Padronizada:** Design focado em usabilidade com widgets arredondados e paleta de cores verde/cinza customizada.
+- **Arquitetura Modular:** Separação total de responsabilidades entre arquivos (Main, Principal, Containers e Negócio).
 
-- **Gestão de Cadastros:** Clientes, Produtos e Serviços.
-- **Operacional:** Controle de Estoque, Orçamentos e Ordens de Serviço (OS).
-- **Financeiro:** Gestão de Pagamentos, Recebimentos e Fluxo de Caixa.
+### ✅ Módulos Desenvolvidos
+- **Cadastro de Pessoa Física:** Inclusão de CPF e dados de contato com sistema de limpeza automática de campos após salvar.
+- **Cadastro de Pessoa Jurídica:** Estrutura pronta para CNPJ e Razão Social.
+- **Gestão de Itens:** Módulos de Produtos e Serviços estruturados para futura integração com banco de dados.
 
-## 🛠️ Tecnologias Utilizadas
+## 🛠️ Tecnologias e Conceitos Aplicados
 
-- **[Python](https://www.python.org):** Linguagem base do projeto.
-- **[CustomTkinter](https://customtkinter.tomschimansky.com):** Biblioteca de interface gráfica (GUI) moderna com suporte a temas e widgets customizados.
-- **POO (Programação Orientada a Objetos):** Estrutura modularizada para facilitar a manutenção e escalabilidade.
+- **[Python 3.x](https://www.python.org):** Linguagem principal.
+- **[CustomTkinter](https://customtkinter.tomschimansky.com):** Interface gráfica de alto nível com suporte a cantos arredondados (`corner_radius`).
+- **Programação Orientada a Objetos (POO):** Uso intenso de herança (`CTkFrame`, `CTk`) para componentes reutilizáveis.
+- **Dicionários Dinâmicos:** Armazenamento de referências de inputs para facilitar a integração com o [SQLite](https://docs.python.org).
 
-## 📁 Estrutura do Projeto
+## 📁 Organização dos Arquivos
 
-- `main.py`: Ponto de entrada da aplicação.
-- `principal.py`: Configuração da janela mestre e orquestração dos containers.
-- `container.py`: Definição visual e lógica dos componentes (Cabeçalho, Menu Lateral e Interface Central).
+- `main.py`: Inicializador do programa.
+- `principal.py`: Maestro da janela principal e centralizador de containers.
+- `container.py`: Lógica de navegação, menu lateral e cabeçalho.
+- `clientes.py`: Telas de cadastro de Pessoa Física e Jurídica.
+- `produtos.py`: Telas de cadastro de Produtos e Serviços.
 
-## 🔧 Como Executar o Projeto
+## 🔧 Como Executar
 
-1. **Clone o repositório:**
+1. **Instale as dependências:**
    ```bash
-   git clone https://github.com
+   pip install customtkinter
