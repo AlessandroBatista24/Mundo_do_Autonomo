@@ -1,15 +1,17 @@
 import sqlite3
 
 # --- FUNÇÃO DE CONEXÃO ---
+# Abre a conexão com o arquivo do banco de dados SQLite
 def conectar():
     return sqlite3.connect("sistema_gestao.db")
 
 # --- CRIAÇÃO ESTRUTURAL (DDL) ---
+# Cria todas as tabelas necessárias caso elas ainda não existam
 def criar_banco():
     conn = conectar()
     cursor = conn.cursor()
 
-    # Tabelas de Clientes
+    # Tabelas de Clientes (PF e PJ)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS clientes_pf (
         id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, cpf TEXT NOT NULL UNIQUE,
@@ -25,7 +27,7 @@ def criar_banco():
         telefone TEXT NOT NULL, email TEXT
     )""")
 
-    # Tabela de Produtos e Serviços
+    # Tabela de Produtos (Note que a coluna se chama 'marca')
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS produtos (
         id INTEGER PRIMARY KEY AUTOINCREMENT, produto TEXT NOT NULL UNIQUE, marca TEXT,
@@ -33,6 +35,7 @@ def criar_banco():
         margem_lucro REAL DEFAULT 0, quantidade REAL NOT NULL, unidade TEXT NOT NULL, v_venda REAL NOT NULL
     )""")
 
+    # Tabela de Serviços
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS servicos (
         id INTEGER PRIMARY KEY AUTOINCREMENT, descricao TEXT NOT NULL UNIQUE,
@@ -40,7 +43,7 @@ def criar_banco():
         v_margem REAL DEFAULT 0, v_final REAL NOT NULL
     )""")
 
-    # Tabelas de Estoque e Orçamentos
+    # Tabelas de Estoque, Orçamentos e Financeiro
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS estoque (
         id_estoque INTEGER PRIMARY KEY AUTOINCREMENT, produto_id INTEGER NOT NULL,
@@ -63,7 +66,6 @@ def criar_banco():
         FOREIGN KEY (id_orcamento) REFERENCES orcamentos (id_orcamento)
     )""")
 
-    # Tabelas Financeiras
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS contas_pagar (
         id INTEGER PRIMARY KEY AUTOINCREMENT, descricao TEXT NOT NULL, valor REAL NOT NULL,
@@ -87,37 +89,112 @@ def criar_banco():
     conn.commit()
     conn.close()
 
-# --- FUNÇÕES DE SALVAMENTO (PF / PJ / PRODUTOS / SERVIÇOS) ---
+# --- FUNÇÕES DE LIMPEZA DE DADOS (Auxiliar) ---
+# Converte valores da interface (R$ 1.200,50) para float puro do Python (1200.50)
+def tratar_numericos(dicionario, campos):
+    for campo in campos:
+        if campo in dicionario:
+            val = str(dicionario[campo]).replace("R$", "").replace(" ", "")
+            if "," in val:
+                val = val.replace(".", "").replace(",", ".")
+            dicionario[campo] = float(val or 0)
+    return dicionario
+
+# --- FUNÇÕES DE PRODUTOS (Com correções de mapeamento) ---
+
+def salvar_produto(dados):
+    conn = conectar(); cursor = conn.cursor()
+    d = dados.copy()
+    
+    # Mapeia 'Fabricante' (da interface) para 'marca' (do banco)
+    if 'Fabricante' in d: d['marca'] = d.pop('Fabricante')
+    
+    # Limpa as strings de dinheiro/porcentagem para números reais
+    d = tratar_numericos(d, ['v_compra', 'v_venda', 'imposto', 'custo_fixo', 'margem_lucro', 'quantidade'])
+
+    cursor.execute("""
+        INSERT INTO produtos (produto, marca, v_compra, imposto, custo_fixo, margem_lucro, quantidade, unidade, v_venda) 
+        VALUES (:produto, :marca, :v_compra, :imposto, :custo_fixo, :margem_lucro, :quantidade, :unidade, :v_venda)
+    """, d)
+    conn.commit(); conn.close()
+
+def buscar_produto_por_nome(nome):
+    conn = conectar(); conn.row_factory = sqlite3.Row; cursor = conn.cursor()
+    cursor.execute("SELECT * FROM produtos WHERE produto = ?", (nome,))
+    linha = cursor.fetchone(); conn.close()
+    
+    if linha:
+        item = dict(linha)
+        # Devolve 'marca' como 'Fabricante' para a interface reconhecer
+        item['Fabricante'] = item.pop('marca')
+        return item
+    return None
+
+def atualizar_produto(dados):
+    conn = conectar(); cursor = conn.cursor()
+    d = dados.copy()
+    
+    if 'Fabricante' in d: d['marca'] = d.pop('Fabricante')
+    d = tratar_numericos(d, ['v_compra', 'v_venda', 'imposto', 'custo_fixo', 'margem_lucro', 'quantidade'])
+
+    cursor.execute("""
+        UPDATE produtos SET 
+            marca=:marca, v_compra=:v_compra, imposto=:imposto, 
+            custo_fixo=:custo_fixo, margem_lucro=:margem_lucro, 
+            quantidade=:quantidade, unidade=:unidade, v_venda=:v_venda 
+        WHERE produto=:produto
+    """, d)
+    conn.commit(); conn.close()
+
+def deletar_produto(nome):
+    conn = conectar(); cursor = conn.cursor()
+    cursor.execute("DELETE FROM produtos WHERE produto = ?", (nome,))
+    conn.commit(); conn.close()
+
+# --- FUNÇÕES DE SERVIÇOS ---
+
+def salvar_servico(dados):
+    conn = conectar(); cursor = conn.cursor()
+    d = dados.copy()
+    # Tratamento simples para serviços
+    d['v_custo'] = float(str(d['v_custo']).replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
+    d['v_final'] = float(str(d['v_final']).replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
+    
+    cursor.execute("""
+        INSERT INTO servicos (descricao, v_custo, v_fixo, v_imposto, v_margem, v_final) 
+        VALUES (:descricao, :v_custo, :v_fixo, :v_imposto, :v_margem, :v_final)
+    """, d)
+    conn.commit(); conn.close()
+
+def buscar_servico_por_descricao(descricao):
+    conn = conectar(); conn.row_factory = sqlite3.Row; cursor = conn.cursor()
+    cursor.execute("SELECT * FROM servicos WHERE descricao = ?", (descricao,))
+    linha = cursor.fetchone(); conn.close()
+    return dict(linha) if linha else None
+
+def atualizar_servico(dados):
+    conn = conectar(); cursor = conn.cursor()
+    # Preservamos a lógica de serviços original conforme solicitado
+    cursor.execute("""
+        UPDATE servicos SET 
+            v_custo=:v_custo, v_fixo=:v_fixo, v_imposto=:v_imposto, 
+            v_margem=:v_margem, v_final=:v_final 
+        WHERE descricao=:descricao
+    """, dados)
+    conn.commit(); conn.close()
+
+def deletar_servico(descricao):
+    conn = conectar(); cursor = conn.cursor()
+    cursor.execute("DELETE FROM servicos WHERE descricao = ?", (descricao,))
+    conn.commit(); conn.close()
+
+# --- CLIENTES PF / PJ ---
 
 def salvar_cliente_pf(dados):
     conn = conectar(); cursor = conn.cursor()
     cursor.execute("INSERT INTO clientes_pf (nome, cpf, logradouro, numero, bairro, cidade, estado, cep, telefone, email) VALUES (:nome, :cpf, :logradouro, :numero, :bairro, :cidade, :estado, :cep, :telefone, :email)", dados)
     conn.commit(); conn.close()
 
-def salvar_cliente_pj(dados):
-    conn = conectar(); cursor = conn.cursor()
-    cursor.execute("INSERT INTO clientes_pj (empresa, fantasia, cnpj, inscricao, logradouro, numero, bairro, cidade, estado, cep, telefone, email) VALUES (:empresa, :fantasia, :cnpj, :inscricao, :logradouro, :numero, :bairro, :cidade, :estado, :cep, :telefone, :email)", dados)
-    conn.commit(); conn.close()
-
-def salvar_produto(dados):
-    conn = conectar(); cursor = conn.cursor()
-    d = dados.copy()
-    d['v_compra'] = float(str(d['v_compra']).replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
-    d['v_venda'] = float(str(d['v_venda']).replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
-    cursor.execute("INSERT INTO produtos (produto, marca, v_compra, imposto, custo_fixo, margem_lucro, quantidade, unidade, v_venda) VALUES (:produto, :marca, :v_compra, :imposto, :custo_fixo, :margem_lucro, :quantidade, :unidade, :v_venda)", d)
-    conn.commit(); conn.close()
-
-def salvar_servico(dados):
-    conn = conectar(); cursor = conn.cursor()
-    d = dados.copy()
-    d['v_custo'] = float(str(d['v_custo']).replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
-    d['v_final'] = float(str(d['v_final']).replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
-    cursor.execute("INSERT INTO servicos (descricao, v_custo, v_fixo, v_imposto, v_margem, v_final) VALUES (:descricao, :v_custo, :v_fixo, :v_imposto, :v_margem, :v_final)", d)
-    conn.commit(); conn.close()
-
-# --- FUNÇÕES DE BUSCA, ATUALIZAÇÃO E EXCLUSÃO ---
-
-# Pessoa Física
 def buscar_cliente_pf_por_cpf(cpf):
     conn = conectar(); conn.row_factory = sqlite3.Row; cursor = conn.cursor()
     cursor.execute("SELECT * FROM clientes_pf WHERE cpf = ?", (cpf,))
@@ -134,7 +211,11 @@ def deletar_cliente_pf(cpf):
     cursor.execute("DELETE FROM clientes_pf WHERE cpf = ?", (cpf,))
     conn.commit(); conn.close()
 
-# Pessoa Jurídica
+def salvar_cliente_pj(dados):
+    conn = conectar(); cursor = conn.cursor()
+    cursor.execute("INSERT INTO clientes_pj (empresa, fantasia, cnpj, inscricao, logradouro, numero, bairro, cidade, estado, cep, telefone, email) VALUES (:empresa, :fantasia, :cnpj, :inscricao, :logradouro, :numero, :bairro, :cidade, :estado, :cep, :telefone, :email)", dados)
+    conn.commit(); conn.close()
+
 def buscar_cliente_pj_por_cnpj(cnpj):
     conn = conectar(); conn.row_factory = sqlite3.Row; cursor = conn.cursor()
     cursor.execute("SELECT * FROM clientes_pj WHERE cnpj = ?", (cnpj,))
@@ -150,47 +231,3 @@ def deletar_cliente_pj(cnpj):
     conn = conectar(); cursor = conn.cursor()
     cursor.execute("DELETE FROM clientes_pj WHERE cnpj = ?", (cnpj,))
     conn.commit(); conn.close()
-
-# Produtos
-def buscar_produto_por_nome(nome):
-    conn = conectar(); conn.row_factory = sqlite3.Row; cursor = conn.cursor()
-    cursor.execute("SELECT * FROM produtos WHERE produto = ?", (nome,))
-    linha = cursor.fetchone(); conn.close()
-    return dict(linha) if linha else None
-
-def atualizar_produto(dados):
-    conn = conectar(); cursor = conn.cursor()
-    d = dados.copy()
-    d['v_compra'] = float(str(d['v_compra']).replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
-    d['v_venda'] = float(str(d['v_venda']).replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
-    cursor.execute("UPDATE produtos SET marca=:marca, v_compra=:v_compra, imposto=:imposto, custo_fixo=:custo_fixo, margem_lucro=:margem_lucro, quantidade=:quantidade, unidade=:unidade, v_venda=:v_venda WHERE produto=:produto", d)
-    conn.commit(); conn.close()
-
-def deletar_produto(nome):
-    conn = conectar(); cursor = conn.cursor()
-    cursor.execute("DELETE FROM produtos WHERE produto = ?", (nome,))
-    conn.commit(); conn.close()
-
-# Serviços
-def buscar_servico_por_descricao(desc):
-    conn = conectar(); conn.row_factory = sqlite3.Row; cursor = conn.cursor()
-    cursor.execute("SELECT * FROM servicos WHERE descricao = ?", (desc,))
-    linha = cursor.fetchone(); conn.close()
-    return dict(linha) if linha else None
-
-def atualizar_servico(dados):
-    conn = conectar(); cursor = conn.cursor()
-    d = dados.copy()
-    d['v_custo'] = float(str(d['v_custo']).replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
-    d['v_final'] = float(str(d['v_final']).replace("R$", "").replace(".", "").replace(",", ".").strip() or 0)
-    cursor.execute("UPDATE servicos SET v_custo=:v_custo, v_fixo=:v_fixo, v_imposto=:v_imposto, v_margem=:v_margem, v_final=:v_final WHERE descricao=:descricao", d)
-    conn.commit(); conn.close()
-
-def deletar_servico(desc):
-    conn = conectar(); cursor = conn.cursor()
-    cursor.execute("DELETE FROM servicos WHERE descricao = ?", (desc,))
-    conn.commit(); conn.close()
-
-if __name__ == "__main__":
-    criar_banco()
-    print("Banco de Dados 100% atualizado!")

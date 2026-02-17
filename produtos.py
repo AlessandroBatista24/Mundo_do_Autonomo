@@ -7,17 +7,18 @@ class Produtos(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self.inputs = {}
-        self.editando_produto = None # Armazena o nome original durante a edição
+        self.editando_produto = None 
 
     def abrir_produtos(self):
         self.place(x=0, y=0, relwidth=1, relheight=1); self.configure(fg_color="white")
 
+        # ORDEM CORRIGIDA: Custo Fixo antes de Imposto
         campos = [
             ("Produto:", "produto", "Nome do item...", "entry", self.aplicar_titulo),
-            ("Marca:", "marca", "Fabricante...", "entry", self.aplicar_titulo),
+            ("Fabricante:", "Fabricante", "Fabricante...", "entry", self.aplicar_titulo),
             ("Valor Compra:", "v_compra", "0.00", "entry", None),
-            ("Imposto (%):", "imposto", "0", "entry", None),
-            ("Custo Fixo (%):", "custo_fixo", "0", "entry", None),
+            ("Custo Fixo (%):", "custo_fixo", "0", "entry", None), # Movido para cima
+            ("Imposto (%):", "imposto", "0", "entry", None),      # Movido para baixo
             ("Margem Lucro (%):", "margem_lucro", "0", "entry", None),
             ("Quantidade:", "quantidade", "Ex: 10", "entry", None),
             ("Unidade:", "unidade", ["UNI", "Metro", "Rolo", "KG", "CX"], "combo", None),
@@ -42,15 +43,18 @@ class Produtos(ctk.CTkFrame):
             widget.grid(row=i, column=1, padx=5, pady=3, sticky="w")
             self.inputs[chave] = widget
 
-        # Container de Botões
         self.frame_botoes = ctk.CTkFrame(self, fg_color="transparent")
         self.frame_botoes.grid(row=len(campos), column=1, pady=20, sticky="w")
 
         self.btn_salvar = ctk.CTkButton(self.frame_botoes, text="SALVAR", width=120, fg_color="#2E8B57", command=self.fluxo_salvamento)
         self.btn_salvar.pack(side="left", padx=5)
 
-        self.btn_modo_edicao = ctk.CTkButton(self.frame_botoes, text="MODO EDIÇÃO", width=120, fg_color="#145B06", command=self.ativar_modo_edicao)
-        self.btn_modo_edicao.pack(side="left", padx=5)
+        # NOME ALTERADO PARA "EDITAR"
+        self.btn_editar = ctk.CTkButton(self.frame_botoes, text="EDITAR", width=120, fg_color="#145B06", command=self.ativar_modo_edicao)
+        self.btn_editar.pack(side="left", padx=5)
+
+        self.btn_retornar = ctk.CTkButton(self.frame_botoes, text="RETORNAR", width=120, fg_color="#696969", command=self.resetar_interface)
+        self.btn_retornar.pack_forget() 
 
         self.btn_deletar = ctk.CTkButton(self.frame_botoes, text="DELETAR", width=120, fg_color="#B22222", command=self.excluir_produto)
         self.btn_deletar.pack_forget()
@@ -72,6 +76,8 @@ class Produtos(ctk.CTkFrame):
 
     def ativar_modo_edicao(self):
         self.resetar_interface()
+        self.btn_editar.pack_forget() 
+        self.btn_retornar.pack(side="left", padx=5) 
         self.btn_salvar.configure(text="BUSCAR PRODUTO", fg_color="#D2691E")
         messagebox.showinfo("Edição", "Digite o nome exato do Produto e clique em BUSCAR.")
 
@@ -91,9 +97,10 @@ class Produtos(ctk.CTkFrame):
             else: messagebox.showerror("Erro", "Produto não encontrado!")
         
         elif texto == "CONFIRMAR ALTERAÇÃO":
-            self.inputs["produto"].configure(state="normal")
-            database.atualizar_produto({c: e.get() for c, e in self.inputs.items()})
-            messagebox.showinfo("Sucesso", "Produto atualizado!"); self.resetar_interface()
+            dados = {c: (self.editando_produto if c == "produto" else e.get()) for c, e in self.inputs.items()}
+            database.atualizar_produto(dados)
+            messagebox.showinfo("Sucesso", "Produto atualizado!")
+            self.resetar_interface() # RETORNA DIRETO PARA O CADASTRO
         else:
             if not self.inputs["produto"].get(): return messagebox.showwarning("Aviso", "Nome do produto obrigatório!")
             database.salvar_produto({c: e.get() for c, e in self.inputs.items()})
@@ -109,7 +116,10 @@ class Produtos(ctk.CTkFrame):
             if isinstance(e, ctk.CTkEntry): e.configure(state="normal"); e.delete(0, 'end')
             else: e.set("UNI")
         self.inputs["v_venda"].configure(state="readonly")
-        self.btn_salvar.configure(text="SALVAR", fg_color="#2E8B57"); self.btn_deletar.pack_forget()
+        self.btn_salvar.configure(text="SALVAR", fg_color="#2E8B57")
+        self.btn_deletar.pack_forget()
+        self.btn_retornar.pack_forget() 
+        self.btn_editar.pack(side="left", padx=5)
 
 # --- CLASSE PARA CADASTRO DE SERVIÇOS ---
 class Servicos(ctk.CTkFrame):
@@ -141,10 +151,17 @@ class Servicos(ctk.CTkFrame):
 
         self.frame_botoes = ctk.CTkFrame(self, fg_color="transparent")
         self.frame_botoes.grid(row=len(campos), column=1, pady=20, sticky="w")
+        
         self.btn_salvar = ctk.CTkButton(self.frame_botoes, text="SALVAR", width=120, fg_color="#2E8B57", command=self.fluxo_servico)
         self.btn_salvar.pack(side="left", padx=5)
-        self.btn_modo_edicao = ctk.CTkButton(self.frame_botoes, text="MODO EDIÇÃO", width=120, fg_color="#145B06", command=self.ativar_edicao_serv)
-        self.btn_modo_edicao.pack(side="left", padx=5)
+
+        # NOME ALTERADO PARA "EDITAR"
+        self.btn_editar = ctk.CTkButton(self.frame_botoes, text="EDITAR", width=120, fg_color="#145B06", command=self.ativar_modo_edicao_servico)
+        self.btn_editar.pack(side="left", padx=5)
+
+        self.btn_retornar = ctk.CTkButton(self.frame_botoes, text="RETORNAR", width=120, fg_color="#696969", command=self.resetar_interface_servico)
+        self.btn_retornar.pack_forget()
+
         self.btn_deletar = ctk.CTkButton(self.frame_botoes, text="DELETAR", width=120, fg_color="#B22222", command=self.excluir_servico)
         self.btn_deletar.pack_forget()
 
@@ -158,12 +175,17 @@ class Servicos(ctk.CTkFrame):
             fixo = float(self.inputs["v_fixo"].get().replace(",", ".") or 0) / 100
             imposto = float(self.inputs["v_imposto"].get().replace(",", ".") or 0) / 100
             margem = float(self.inputs["v_margem"].get().replace(",", ".") or 0) / 100
-            v_final = custo + (custo * (fixo + imposto + margem))
-            self.inputs["v_final"].configure(state="normal"); self.inputs["v_final"].delete(0, 'end'); self.inputs["v_final"].insert(0, f"R$ {v_final:.2f}"); self.inputs["v_final"].configure(state="readonly")
+            venda = custo + (custo * (fixo + imposto + margem))
+            self.inputs["v_final"].configure(state="normal"); self.inputs["v_final"].delete(0, 'end')
+            self.inputs["v_final"].insert(0, f"R$ {venda:.2f}"); self.inputs["v_final"].configure(state="readonly")
         except: pass
 
-    def ativar_edicao_serv(self):
-        self.resetar_interface(); self.btn_salvar.configure(text="BUSCAR SERVIÇO", fg_color="#D2691E")
+    def ativar_modo_edicao_servico(self):
+        self.resetar_interface_servico()
+        self.btn_editar.pack_forget()
+        self.btn_retornar.pack(side="left", padx=5)
+        self.btn_salvar.configure(text="BUSCAR SERVIÇO", fg_color="#D2691E")
+        messagebox.showinfo("Edição", "Digite a descrição exata do serviço e clique em BUSCAR.")
 
     def fluxo_servico(self):
         texto = self.btn_salvar.cget("text")
@@ -172,23 +194,27 @@ class Servicos(ctk.CTkFrame):
             item = database.buscar_servico_por_descricao(desc)
             if item:
                 for c, v in item.items():
-                    if c in self.inputs: self.inputs[c].configure(state="normal"); self.inputs[c].delete(0, 'end'); self.inputs[c].insert(0, str(v))
-                self.editando_servico = desc; self.inputs["descricao"].configure(state="disabled"); self.btn_salvar.configure(text="CONFIRMAR ALTERAÇÃO"); self.btn_deletar.pack(side="left", padx=5)
+                    if c in self.inputs:
+                        self.inputs[c].configure(state="normal"); self.inputs[c].delete(0, 'end'); self.inputs[c].insert(0, str(v))
+                self.editando_servico = desc; self.inputs["descricao"].configure(state="disabled")
+                self.btn_salvar.configure(text="CONFIRMAR ALTERAÇÃO"); self.btn_deletar.pack(side="left", padx=5)
             else: messagebox.showerror("Erro", "Serviço não encontrado!")
         elif texto == "CONFIRMAR ALTERAÇÃO":
-            self.inputs["descricao"].configure(state="normal")
-            database.atualizar_servico({c: e.get() for c, e in self.inputs.items()})
-            messagebox.showinfo("Sucesso", "Serviço atualizado!"); self.resetar_interface()
+            dados = {c: (self.editando_servico if c == "descricao" else e.get()) for c, e in self.inputs.items()}
+            database.atualizar_servico(dados)
+            messagebox.showinfo("Sucesso", "Serviço atualizado!")
+            self.resetar_interface_servico() # RETORNA DIRETO PARA O CADASTRO
         else:
             database.salvar_servico({c: e.get() for c, e in self.inputs.items()})
-            messagebox.showinfo("Sucesso", "Serviço salvo!"); self.resetar_interface()
+            messagebox.showinfo("Sucesso", "Serviço Salvo!"); self.resetar_interface_servico()
 
     def excluir_servico(self):
-        if messagebox.askyesno("Confirmar", "Deletar este serviço?"):
-            database.deletar_servico(self.editando_servico); self.resetar_interface()
+        if messagebox.askyesno("Confirmar", "Excluir este serviço?"):
+            database.deletar_servico(self.editando_servico); self.resetar_interface_servico()
 
-    def resetar_interface(self):
+    def resetar_interface_servico(self):
         self.editando_servico = None
         for e in self.inputs.values(): e.configure(state="normal"); e.delete(0, 'end')
         self.inputs["v_final"].configure(state="readonly")
-        self.btn_salvar.configure(text="SALVAR", fg_color="#2E8B57"); self.btn_deletar.pack_forget()
+        self.btn_salvar.configure(text="SALVAR", fg_color="#2E8B57")
+        self.btn_deletar.pack_forget(); self.btn_retornar.pack_forget(); self.btn_editar.pack(side="left", padx=5)
