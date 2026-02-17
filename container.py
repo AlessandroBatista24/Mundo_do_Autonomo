@@ -1,101 +1,107 @@
-import customtkinter as ctk 
-from PIL import Image
-from clientes import PessoaFisica, PessoaJuridica
-from produtos import Produtos, Servicos 
+import customtkinter as ctk        # Biblioteca para interface moderna (CustomTkinter)
+from PIL import Image               # Biblioteca Pillow para manipulação de imagens (Logotipo)
+from clientes import PessoaFisica, PessoaJuridica  # Importa as classes de clientes
+from produtos import Produtos, Servicos            # Importa as classes de produtos/serviços
+from estoque import Estoque          # Importa a nova classe de controle de estoque
 
+# =============================================================================
+# CLASSE: CABEÇALHO (LOGO E TÍTULO)
+# =============================================================================
 class ContainerSuperior(ctk.CTkFrame):
+    """ Define a barra superior do programa com o logo e o título do sistema. """
     def __init__(self, master, **kwargs):
+        # Inicializa o frame com as cores e dimensões definidas
         super().__init__(master, width=1000, height=130, bg_color="#98FB98", fg_color="#98FB98", corner_radius=0, **kwargs)
-        self.place(x=0, y=0)
+        self.place(x=0, y=0) # Fixa no topo absoluto da janela
+        
+        # Bloco Try/Except para carregar a imagem (evita que o programa feche se a imagem sumir)
         try:
             self.logo_img = ctk.CTkImage(light_image=Image.open("imagem.png"), size=(90, 90))
-        except: self.logo_img = None
-        self.titulo = ctk.CTkLabel(self, text=" Mundo do Autônomo!", image=self.logo_img, compound="left", padx=50, text_color="#145B06", font=("Arial", 32, "bold"))
-        self.titulo.place(relx=0.5, rely=0.5, anchor="center")
+        except: 
+            self.logo_img = None # Se a imagem não for encontrada, o label funcionará apenas com texto
+            
+        # Título principal do software com o ícone (se houver) posicionado à esquerda (left)
+        self.titulo = ctk.CTkLabel(self, text=" Mundo do Autônomo!", image=self.logo_img, 
+                                   compound="left", padx=50, text_color="#145B06", font=("Arial", 32, "bold"))
+        self.titulo.place(relx=0.5, rely=0.5, anchor="center") # Centraliza o título no frame
 
+# =============================================================================
+# CLASSE: MENU LATERAL (NAVEGAÇÃO)
+# =============================================================================
 class MenuLateral(ctk.CTkFrame):
+    """ Gerencia os botões laterais e a lógica de troca de telas no container central. """
     def __init__(self, master, interface_central, **kwargs):
+        # Configura o frame lateral (cor de fundo e dimensões)
         super().__init__(master, width=180, height=620, bg_color="#7CCD7C", fg_color="#7CCD7C", corner_radius=0, **kwargs) 
-        self.interface_central = interface_central 
-        self.place(x=0, y=130)
-        self.grid_propagate(False)
+        self.interface_central = interface_central # Referência do frame onde as telas serão desenhadas
+        self.place(x=0, y=130) # Posiciona logo abaixo do cabeçalho
+        self.grid_propagate(False) # Impede que o frame mude de tamanho para caber os botões
 
-        # Agora cada botão tem sua função dedicada que limpa a tela
-        self.btn_pf = ctk.CTkButton(self, width=180, height=40, fg_color="#2E8B57", text="CADASTRO PES. FISICA", 
-                                    font=("Century Gothic bold", 11), corner_radius=0, hover_color="#145B06", command=self.abrir_fisica)
-        self.btn_pf.grid(row=0, column=0, pady=2)
+        # Lista de configuração para criar os botões em loop (Texto do botão, Função correspondente)
+        opcoes = [
+            ("CADASTRO PES. FISICA", self.abrir_fisica),
+            ("CADASTRO PES. JURIDICA", self.abrir_juridico),
+            ("CAD. PRODUTOS", self.abrir_produtos),
+            ("CAD. SERVIÇOS", self.abrir_servicos),
+            ("ESTOQUE", self.abrir_estoque),
+            ("ORÇAMENTO", self.abrir_orcamento),
+            ("ORDEM DE SERVIÇO", self.abrir_os),
+            ("CONTAS A PAGAR", self.abrir_contas_pagar),
+            ("CONTAS A RECEBER", self.abrir_contas_receber),
+            ("CAIXA", self.abrir_caixa),
+        ]
 
-        self.btn_pj = ctk.CTkButton(self, width=180, height=40, fg_color="#2E8B57", text="CADASTRO PES. JURIDICA", 
-                                    font=("Century Gothic bold", 11), corner_radius=0, hover_color="#145B06", command=self.abrir_juridico)
-        self.btn_pj.grid(row=1, column=0, pady=2)
-
-        self.btn_prod = ctk.CTkButton(self, width=180, height=40, fg_color="#2E8B57", text="CAD. PRODUTOS", 
-                                      font=("Century Gothic bold", 11), corner_radius=0, hover_color="#145B06", command=self.abrir_produtos)
-        self.btn_prod.grid(row=2, column=0, pady=2)
-
-        self.btn_serv = ctk.CTkButton(self, width=180, height=40, fg_color="#2E8B57", text="CAD. SERVIÇOS", 
-                                      font=("Century Gothic bold", 11), corner_radius=0, hover_color="#145B06", command=self.abrir_servicos)
-        self.btn_serv.grid(row=3, column=0, pady=2)
-
-        self.btn_est = ctk.CTkButton(self, width=180, height=40, fg_color="#2E8B57", text="ESTOQUE", 
-                                     font=("Century Gothic bold", 11), corner_radius=0, hover_color="#145B06", command=self.abrir_estoque)
-        self.btn_est.grid(row=4, column=0, pady=2)
-
-        self.btn_orc = ctk.CTkButton(self, width=180, height=40, fg_color="#2E8B57", text="ORÇAMENTO", 
-                                     font=("Century Gothic bold", 11), corner_radius=0, hover_color="#145B06", command=self.abrir_orcamento)
-        self.btn_orc.grid(row=5, column=0, pady=2)
-
-        self.btn_os = ctk.CTkButton(self, width=180, height=40, fg_color="#2E8B57", text="ORDEM DE SERVIÇO", 
-                                    font=("Century Gothic bold", 11), corner_radius=0, hover_color="#145B06", command=self.abrir_os)
-        self.btn_os.grid(row=6, column=0, pady=2)
-
-        self.btn_pagar = ctk.CTkButton(self, width=180, height=40, fg_color="#2E8B57", text="CONTAS A PAGAR", 
-                                       font=("Century Gothic bold", 11), corner_radius=0, hover_color="#145B06", command=self.abrir_contas_pagar)
-        self.btn_pagar.grid(row=7, column=0, pady=2)
-
-        self.btn_receber = ctk.CTkButton(self, width=180, height=40, fg_color="#2E8B57", text="CONTAS A RECEBER", 
-                                         font=("Century Gothic bold", 11), corner_radius=0, hover_color="#145B06", command=self.abrir_contas_receber)
-        self.btn_receber.grid(row=8, column=0, pady=2)
-
-        self.btn_caixa = ctk.CTkButton(self, width=180, height=40, fg_color="#2E8B57", text="CAIXA", 
-                                       font=("Century Gothic bold", 11), corner_radius=0, hover_color="#145B06", command=self.abrir_caixa)
-        self.btn_caixa.grid(row=9, column=0, pady=2)
+        # Criação automatizada dos botões no menu lateral
+        for i, (texto, comando) in enumerate(opcoes):
+            btn = ctk.CTkButton(self, width=180, height=40, fg_color="#2E8B57", text=texto, 
+                                font=("Century Gothic bold", 11), corner_radius=0, 
+                                hover_color="#145B06", command=comando)
+            btn.grid(row=i, column=0, pady=2) # Organiza um abaixo do outro com pequeno espaçamento
 
     def limpar_interface(self):
-        """Remove absolutamente todos os widgets da tela central"""
+        """ Destrói todos os widgets ativos no centro da tela antes de abrir uma nova tela. 
+            Isso evita que uma tela seja desenhada por cima da outra. """
         for widget in self.interface_central.winfo_children():
             widget.destroy()
 
-    # --- FUNÇÕES DE ABERTURA ---
+    # --- MÉTODOS DE NAVEGAÇÃO ---
+    # Cada método limpa a tela central, instancia a classe necessária e chama seu método 'abrir'
+
     def abrir_fisica(self):
         self.limpar_interface()
-        janela = PessoaFisica(master=self.interface_central)
-        janela.abrir_fisica()
+        PessoaFisica(master=self.interface_central).abrir_fisica()
 
     def abrir_juridico(self):
         self.limpar_interface()
-        janela = PessoaJuridica(master=self.interface_central)
-        janela.abrir_juridico()
+        PessoaJuridica(master=self.interface_central).abrir_juridico()
 
     def abrir_produtos(self):
         self.limpar_interface()
-        janela = Produtos(master=self.interface_central)
-        janela.abrir_produtos()
+        Produtos(master=self.interface_central).abrir_produtos()
 
     def abrir_servicos(self):
         self.limpar_interface()
-        janela = Servicos(master=self.interface_central)
-        janela.abrir_servicos()
+        Servicos(master=self.interface_central).abrir_servicos()
 
-    # Placeholders que também limpam a tela
-    def abrir_estoque(self): self.limpar_interface(); print("Estoque aberto")
+    def abrir_estoque(self):
+        """ Carrega o módulo de consulta de estoque. """
+        self.limpar_interface()
+        janela = Estoque(master=self.interface_central)
+        janela.abrir_estoque()
+
+    # Placeholders (espaços reservados) para funções que ainda serão desenvolvidas
     def abrir_orcamento(self): self.limpar_interface(); print("Orçamento aberto")
     def abrir_os(self): self.limpar_interface(); print("OS aberta")
     def abrir_contas_pagar(self): self.limpar_interface(); print("Contas a pagar aberto")
     def abrir_contas_receber(self): self.limpar_interface(); print("Contas a receber aberto")
     def abrir_caixa(self): self.limpar_interface(); print("Caixa aberto")
 
+# =============================================================================
+# CLASSE: INTERFACE CENTRAL (O PALCO)
+# =============================================================================
 class Interface(ctk.CTkFrame):
+    """ Este é o frame 'vazio' que fica no centro da tela. 
+        Ele serve de base (master) para todas as outras telas do sistema. """
     def __init__(self, master, **kwargs):
         super().__init__(master, width=820, height=620, fg_color="white", corner_radius=0, **kwargs)
-        self.place(x=180, y=130)
+        self.place(x=180, y=130) # Posiciona ao lado do menu lateral
