@@ -4,6 +4,9 @@ from clientes import PessoaFisica, PessoaJuridica  # Importa as classes de clien
 from produtos import Produtos, Servicos            # Importa as classes de produtos/serviços
 from estoque import Estoque          # Importa a nova classe de controle de estoque
 from orcamento import Orcamentos  # Importa a nova classe que você está criando
+from os_modulo import OS  # Importa a classe do novo arquivo que vamos criar
+
+
 
 # =============================================================================
 # CLASSE: CABEÇALHO (LOGO E TÍTULO)
@@ -96,7 +99,14 @@ class MenuLateral(ctk.CTkFrame):
         # Cria a instância da tela de orçamentos e chama o método para desenhá-la
         Orcamentos(master=self.interface_central).abrir_orcamento()
 
-    def abrir_os(self): self.limpar_interface(); print("OS aberta")
+    def abrir_os(self):
+        """ Limpa a interface central e carrega o módulo de Ordens de Serviço """
+        self.limpar_interface()
+        # Usamos 'interface_central' para manter a consistência com os outros métodos
+        janela = OS(master=self.interface_central)
+        janela.abrir_os() # Método que criaremos dentro do arquivo os_modulo.py
+
+
     def abrir_contas_pagar(self): self.limpar_interface(); print("Contas a pagar aberto")
     def abrir_contas_receber(self): self.limpar_interface(); print("Contas a receber aberto")
     def abrir_caixa(self): self.limpar_interface(); print("Caixa aberto")
