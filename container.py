@@ -3,6 +3,7 @@ from PIL import Image               # Biblioteca Pillow para manipulação de im
 from clientes import PessoaFisica, PessoaJuridica  # Importa as classes de clientes
 from produtos import Produtos, Servicos            # Importa as classes de produtos/serviços
 from estoque import Estoque          # Importa a nova classe de controle de estoque
+from orcamento import Orcamentos  # Importa a nova classe que você está criando
 
 # =============================================================================
 # CLASSE: CABEÇALHO (LOGO E TÍTULO)
@@ -90,7 +91,11 @@ class MenuLateral(ctk.CTkFrame):
         janela.abrir_estoque()
 
     # Placeholders (espaços reservados) para funções que ainda serão desenvolvidas
-    def abrir_orcamento(self): self.limpar_interface(); print("Orçamento aberto")
+    def abrir_orcamento(self):
+        self.limpar_interface()
+        # Cria a instância da tela de orçamentos e chama o método para desenhá-la
+        Orcamentos(master=self.interface_central).abrir_orcamento()
+
     def abrir_os(self): self.limpar_interface(); print("OS aberta")
     def abrir_contas_pagar(self): self.limpar_interface(); print("Contas a pagar aberto")
     def abrir_contas_receber(self): self.limpar_interface(); print("Contas a receber aberto")

@@ -164,16 +164,22 @@ class Produtos(ctk.CTkFrame):
 
     # Gerencia se o sistema deve criar um registro novo ou atualizar um antigo
     def fluxo_salvamento(self):
-        dados = {c: e.get() for c, e in self.inputs.items()} # Gera dicionário com tudo que está escrito
+    # LIMPEZA DOS DADOS: Remove "R$", espaços e garante que use ponto em vez de vírgula
+        dados = {}
+        for c, e in self.inputs.items():
+            valor = e.get().replace("R$", "").replace(",", ".").strip()
+            dados[c] = valor
+
         if self.modo_edicao:
-            # Se está editando, usa a função de update do banco
             database.atualizar_produto_composto(dados, self.id_original[0], self.id_original[1])
             messagebox.showinfo("Sucesso", "Atualizado!")
         else:
-            # Se é novo, tenta salvar e avisa se já existir duplicado
-            if database.salvar_produto(dados): messagebox.showinfo("Sucesso", "Salvo!")
-            else: messagebox.showerror("Erro", "Produto/Fabricante já existe!")
+            if database.salvar_produto(dados): 
+                messagebox.showinfo("Sucesso", "Salvo!")
+            else: 
+                messagebox.showerror("Erro", "Produto/Fabricante já existe!")
         self.resetar_interface()
+
 
     # Pergunta se o usuário tem certeza e deleta o item
     def excluir_produto(self):
@@ -291,15 +297,17 @@ class Servicos(ctk.CTkFrame):
 
     # Gerencia o salvamento dos dados (Insert ou Update)
     def fluxo_salvamento(self):
-        dados = {c: e.get() for c, e in self.inputs.items()} # Coleta dados de todos os campos
+        # LIMPEZA DOS DADOS
+        dados = {c: e.get().replace("R$", "").replace(",", ".").strip() for c, e in self.inputs.items()}
+        
         if self.modo_edicao:
-            # Atualiza registro existente usando a descrição original como chave
             database.atualizar_servico_com_desc(dados, self.desc_original)
             messagebox.showinfo("Sucesso", "Atualizado!")
         else:
-            # Salva um novo serviço no banco
-            database.salvar_servico(dados); messagebox.showinfo("Sucesso", "Salvo!")
+            database.salvar_servico(dados)
+            messagebox.showinfo("Sucesso", "Salvo!")
         self.resetar_interface()
+
 
     # Remove o serviço do banco de dados após confirmação
     def excluir_servico(self):
