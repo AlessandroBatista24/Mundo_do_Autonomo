@@ -174,3 +174,20 @@ def salvar_orcamento_completo(dados_h, lista_i):
         # Em caso de erro, desfaz qualquer inserção parcial (Rollback)
         print(f"Erro no banco: {e}"); conn.rollback(); return False
     finally: conn.close()
+# --- FUNÇÕES DE BUSCA QUE ESTÃO FALTANDO ---
+
+def buscar_clientes_pf_flexivel(termo):
+    conn = conectar(); conn.row_factory = sqlite3.Row; cursor = conn.cursor()
+    cursor.execute("SELECT * FROM clientes_pf WHERE nome LIKE ? OR cpf LIKE ?", (f"%{termo}%", f"%{termo}%"))
+    res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res
+
+def buscar_clientes_pj_flexivel(termo):
+    conn = conectar(); conn.row_factory = sqlite3.Row; cursor = conn.cursor()
+    cursor.execute("SELECT * FROM clientes_pj WHERE empresa LIKE ? OR fantasia LIKE ? OR cnpj LIKE ?", 
+                   (f"%{termo}%", f"%{termo}%", f"%{termo}%"))
+    res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res
+
+def buscar_orcamentos_flexivel(termo):
+    conn = conectar(); conn.row_factory = sqlite3.Row; cursor = conn.cursor()
+    cursor.execute("SELECT * FROM orcamentos WHERE nome_cliente LIKE ? OR documento LIKE ?", (f"%{termo}%", f"%{termo}%"))
+    res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res

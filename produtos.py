@@ -112,12 +112,12 @@ class Produtos(ctk.CTkFrame):
             self.inputs[chave] = widget # Salva o widget no dicionário usando a chave técnica
 
         # Configura os botões de ação com suas respectivas cores e comandos
-        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", command=self.fluxo_salvamento)
+        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", hover_color="#145B06", command=self.fluxo_salvamento)
         self.btn_salvar.place(x=150, y=420)
-        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, fg_color="#D2691E", command=self.iniciar_busca)
+        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, fg_color="#D2691E", hover_color="#145B06", command=self.iniciar_busca)
         self.btn_buscar.place(x=300, y=420)
-        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, fg_color="#696969", command=self.resetar_interface)
-        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, fg_color="#B22222", command=self.excluir_produto)
+        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, fg_color="#696969", hover_color="#145B06", command=self.resetar_interface)
+        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, fg_color="#B22222", hover_color="#145B06", command=self.excluir_produto)
 
     # Função que deixa a primeira letra maiúscula enquanto o usuário digita
     def aplicar_titulo(self, e):
@@ -242,12 +242,12 @@ class Servicos(ctk.CTkFrame):
             self.inputs[chave] = entry # Guarda a referência no dicionário
 
         # Configuração e posicionamento dos botões de ação
-        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", command=self.fluxo_salvamento)
+        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", hover_color="#145B06", command=self.fluxo_salvamento)
         self.btn_salvar.place(x=150, y=350)
-        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, fg_color="#D2691E", command=self.iniciar_busca)
+        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, fg_color="#D2691E", hover_color="#145B06", command=self.iniciar_busca)
         self.btn_buscar.place(x=300, y=350)
-        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, fg_color="#696969", command=self.resetar_interface)
-        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, fg_color="#B22222", command=self.excluir_servico)
+        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, fg_color="#696969", hover_color="#145B06", command=self.resetar_interface)
+        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, fg_color="#B22222", hover_color="#145B06", command=self.excluir_servico)
 
     # Formata o texto para "Formato De Título" (primeiras letras maiúsculas)
     def aplicar_titulo(self, e):

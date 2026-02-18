@@ -6,6 +6,42 @@ from datetime import datetime
 from produtos import JanelaBusca 
 from fpdf import FPDF
 
+class JanelaQuantidade(ctk.CTkToplevel):
+    """ Janela de diálogo personalizada em Branco e Verde """
+    def __init__(self, item_nome, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.geometry("320x180")
+        self.title("Alterar Quantidade")
+        self.configure(fg_color="white") # FUNDO BRANCO
+        self.resizable(False, False)
+        self.result = None
+        
+        # Garante que a janela fique por cima e impeça cliques fora
+        self.grab_set()
+
+        ctk.CTkLabel(self, text=f"Nova quantidade para:\n{item_nome}", 
+                     text_color="black", font=("Arial", 12, "bold")).pack(pady=15)
+        
+        # Entrada com borda VERDE e fundo BRANCO
+        self.entry = ctk.CTkEntry(self, width=150, fg_color="white", border_color="#2E8B57", 
+                                  text_color="black", font=("Arial", 14))
+        self.entry.pack(pady=5)
+        self.entry.focus()
+
+        # Botão VERDE conforme seu padrão
+        btn = ctk.CTkButton(self, text="CONFIRMAR", fg_color="#2E8B57", hover_color="#145B06",
+                            text_color="white", font=("Arial", 11, "bold"), command=self.confirmar)
+        btn.pack(pady=15)
+
+    def confirmar(self):
+        self.result = self.entry.get()
+        self.destroy()
+
+    def obter_valor(self):
+        self.master.wait_window(self)
+        return self.result
+
+
 class Orcamentos(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
@@ -40,8 +76,8 @@ class Orcamentos(ctk.CTkFrame):
                                             width=200, fg_color="white", border_color="#2E8B57", text_color="black")
         self.entry_busca_cli.grid(row=0, column=2, padx=5)
 
-        btn_busca_cli = ctk.CTkButton(self.frame_cliente, text="🔍 BUSCAR", width=80, fg_color="#D2691E", 
-                                      hover_color="#A0522D", command=self.buscar_cliente_orc)
+        btn_busca_cli = ctk.CTkButton(self.frame_cliente, text="🔍 BUSCAR", width=80, fg_color="#D2691E", hover_color="#145B06"
+                                      , command=self.buscar_cliente_orc)
         btn_busca_cli.grid(row=0, column=3, padx=5)
 
         self.label_dados_cli = ctk.CTkLabel(self.frame_cliente, text="Nenhum cliente selecionado", 
@@ -56,10 +92,10 @@ class Orcamentos(ctk.CTkFrame):
                                          width=280, border_color="#2E8B57", fg_color="white", text_color="black")
         self.entry_filtro.grid(row=0, column=0, padx=5)
 
-        ctk.CTkButton(self.frame_selecao, text="+ PRODUTO", fg_color="#2E8B57", width=110,
+        ctk.CTkButton(self.frame_selecao, text="+ PRODUTO", fg_color="#2E8B57", hover_color="#145B06", width=110,
                       command=lambda: self.abrir_busca_item("produto")).grid(row=0, column=1, padx=5)
 
-        ctk.CTkButton(self.frame_selecao, text="+ SERVIÇO", fg_color="#2E8B57", width=110,
+        ctk.CTkButton(self.frame_selecao, text="+ SERVIÇO", fg_color="#2E8B57", hover_color="#145B06", width=110,
                       command=lambda: self.abrir_busca_item("servico")).grid(row=0, column=2, padx=5)
 
         # Chamada para criar a tabela e rodapé (que estarão na Parte 2)
@@ -120,7 +156,7 @@ class Orcamentos(ctk.CTkFrame):
         self.label_total_resumo.pack(side="left", padx=15)
 
         self.btn_finalizar = ctk.CTkButton(self.frame_totais, text="FINALIZAR", width=100, height=30,
-                                           fg_color="#2E8B57", font=("Arial", 11, "bold"),
+                                           fg_color="#2E8B57", hover_color="#145B06", font=("Arial", 11, "bold"),
                                            command=self.finalizar_orcamento)
         self.btn_finalizar.pack(side="right", padx=15)
 
@@ -143,7 +179,7 @@ class Orcamentos(ctk.CTkFrame):
                 self.renderizar_itens(); return
         
         novo = {
-            'id': id_banco, # <--- CERTIFIQUE-SE DE QUE ESTÁ ASSIM
+            'id': id_banco, 
             'identificador': id_item, 
             'valor': valor_unit,
             'tipo': 'servico' if 'descricao' in item else 'produto',
@@ -172,8 +208,8 @@ class Orcamentos(ctk.CTkFrame):
 
             # Botão EDITAR (Agora com texto claro e cor mais profissional)
             ctk.CTkButton(linha, text="EDITAR", width=50, height=25, 
-                        fg_color="#2B5B99", # Azul escuro profissional
-                        hover_color="#1F3F6D",
+                        fg_color="#2E8B57", # Azul escuro profissional
+                        hover_color="#145B06",
                         font=("Arial", 10, "bold"),
                         command=lambda i=item: self.editar_quantidade(i)).grid(row=0, column=4, padx=2)
 
@@ -192,12 +228,23 @@ class Orcamentos(ctk.CTkFrame):
         self.label_total_resumo.configure(text=f"Prod: R$ {self.total_produtos:.2f} | Serv: R$ {self.total_servicos:.2f} | TOTAL: R$ {total:.2f}")
 
     def editar_quantidade(self, item):
-        dialogo = ctk.CTkInputDialog(text=f"Nova quantidade para {item['identificador']}:", title="Editar")
-        nova_qtd = dialogo.get_input()
-        if nova_qtd and nova_qtd.isdigit():
-            item['qtd'] = int(nova_qtd)
-            item['total'] = item['qtd'] * item['valor']
-            self.renderizar_itens()
+        # Chama a nova janela personalizada
+        dialogo = JanelaQuantidade(item['identificador'], master=self)
+        nova_qtd = dialogo.obter_valor()
+        
+        if nova_qtd:
+            # Tratamento para aceitar vírgula (padrão brasileiro) e transformar em float
+            try:
+                valor_limpo = nova_qtd.replace(',', '.')
+                qtd_float = float(valor_limpo)
+                
+                if qtd_float > 0:
+                    item['qtd'] = qtd_float
+                    item['total'] = item['qtd'] * item['valor']
+                    self.renderizar_itens()
+            except ValueError:
+                messagebox.showwarning("Erro", "Digite um valor numérico válido.")
+
 
     def remover_item(self, item):
         if item in self.carrinho_produtos: self.carrinho_produtos.remove(item)

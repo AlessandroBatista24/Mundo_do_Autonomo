@@ -125,15 +125,15 @@ class PessoaFisica(ctk.CTkFrame):
             self.inputs[chave] = entry
 
         # Botões de controle da interface
-        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", command=self.fluxo_salvamento)
+        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", hover_color="#145B06", command=self.fluxo_salvamento)
         self.btn_salvar.place(x=130, y=420)
         
-        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, fg_color="#D2691E", command=self.iniciar_busca)
+        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, fg_color="#D2691E", hover_color="#145B06", command=self.iniciar_busca)
         self.btn_buscar.place(x=260, y=420)
         
-        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, fg_color="#696969", command=self.resetar_interface)
+        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, fg_color="#696969", hover_color="#145B06", command=self.resetar_interface)
         
-        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, fg_color="#B22222", command=self.excluir_pf)
+        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, fg_color="#B22222", hover_color="#145B06", command=self.excluir_pf)
 
     def iniciar_busca(self):
         """ Pega o nome/CPF e abre a janela de resultados. """
@@ -218,12 +218,12 @@ class PessoaJuridica(ctk.CTkFrame):
             self.inputs[chave] = entry
 
         # Botões de ação para PJ
-        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", command=self.fluxo_salvamento)
+        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", hover_color="#145B06", command=self.fluxo_salvamento)
         self.btn_salvar.place(x=130, y=450)
-        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, fg_color="#D2691E", command=self.iniciar_busca)
+        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, fg_color="#D2691E", hover_color="#145B06", command=self.iniciar_busca)
         self.btn_buscar.place(x=260, y=450)
-        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, fg_color="#696969", command=self.resetar_interface)
-        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, fg_color="#B22222", command=self.excluir_pj)
+        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, fg_color="#696969", hover_color="#145B06", command=self.resetar_interface)
+        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, fg_color="#B22222", hover_color="#145B06", command=self.excluir_pj)
 
     def iniciar_busca(self):
         """ Busca empresas por Razão Social ou CNPJ. """
