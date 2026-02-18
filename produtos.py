@@ -71,11 +71,12 @@ class Produtos(ctk.CTkFrame):
         self.modo_edicao = False  # Controla se o botão 'Salvar' deve criar um novo ou atualizar existente
 
     # Método que desenha a interface na tela
+        # Método que desenha a interface na tela
     def abrir_produtos(self):
         # Faz o frame ocupar toda a janela e define o fundo branco
         self.place(x=0, y=0, relwidth=1, relheight=1); self.configure(fg_color="white")
         
-        # Lista de configuração dos campos: (Rótulo, Chave, Placeholder, Tipo, Função_ao_digitar)
+        # Lista de configuração atualizada: [UN, MT, RL, CX, KG]
         campos = [
             ("Produto:", "produto", "Nome...", "entry", self.aplicar_titulo),
             ("Fabricante:", "fabricante", "Fabricante...", "entry", self.aplicar_titulo),
@@ -84,32 +85,35 @@ class Produtos(ctk.CTkFrame):
             ("Imposto (%):", "imposto", "0", "entry", None),
             ("Margem Lucro (%):", "margem_lucro", "0", "entry", None),
             ("Quantidade:", "quantidade", "0", "entry", None),
-            ("Unidade:", "unidade", ["UNI", "KG", "CX"], "combo", None),
+            ("Unidade:", "unidade", ["UN", "MT", "RL", "CX", "KG"], "combo", None),
             ("Venda Final:", "v_venda", "R$ 0,00", "entry", None)
         ]
 
-        # Loop para criar automaticamente cada Label e Input na tela usando Grid
+        # Loop para criar automaticamente cada Label e Input
         for i, (txt, chave, msg, tipo, func) in enumerate(campos):
-            # Cria o texto à esquerda (Label)
             ctk.CTkLabel(self, text=txt, font=("Arial", 14, "bold"), text_color="#145B06").grid(row=i, column=0, padx=10, pady=3, sticky="w")
             
             if tipo == "entry":
-                # Cria campo de texto simples
                 widget = ctk.CTkEntry(self, width=400, height=35, placeholder_text=msg, fg_color="#F0F0F0", border_width=0, corner_radius=50, text_color="black")
-                # Se for o campo de venda, bloqueia para digitação (é preenchido por cálculo)
                 if chave == "v_venda": widget.configure(state="readonly", fg_color="#E0E0E0")
-                # Se houver função de formatação (como Título), aplica ao soltar a tecla
                 if func: widget.bind("<KeyRelease>", lambda event, e=widget, f=func: f(e))
-                # Se for campo numérico, vincula o cálculo automático de preço
                 if chave in ["v_compra", "imposto", "custo_fixo", "margem_lucro"]:
                     widget.bind("<KeyRelease>", lambda e: self.calcular_venda(), add="+")
             else:
-                # Cria caixa de seleção (Combo)
-                widget = ctk.CTkComboBox(self, width=400, height=35, values=msg, fg_color="#F0F0F0", border_width=0, corner_radius=50, text_color="black")
+                # --- CAMPO DE SELEÇÃO VERDE PADRONIZADO ---
+                widget = ctk.CTkComboBox(self, width=400, height=35, values=msg, 
+                                         fg_color="#E9F0EA",          
+                                         button_color="#1E5D3A",       # Botão da seta Verde Escuro
+                                         button_hover_color="#145B06", # Hover da seta
+                                         border_width=0, 
+                                         corner_radius=50, 
+                                         text_color="black",           # Texto Branco para contraste
+                                         dropdown_fg_color="#2E8B57",  # Fundo da lista aberta
+                                         dropdown_text_color="black",  # Texto da lista aberta
+                                         dropdown_hover_color="#1E5D3A") # Seleção na lista
             
-            # Posiciona o widget na coluna 1 da grade
             widget.grid(row=i, column=1, padx=5, pady=3, sticky="w")
-            self.inputs[chave] = widget # Salva o widget no dicionário usando a chave técnica
+            self.inputs[chave] = widget
 
         # Configura os botões de ação com suas respectivas cores e comandos
         self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", hover_color="#145B06", command=self.fluxo_salvamento)
