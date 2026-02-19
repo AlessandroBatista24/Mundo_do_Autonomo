@@ -221,8 +221,58 @@ def buscar_itens_do_orcamento(id_orcamento):
     cursor.execute(query, (id_orcamento,))
     res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res
 
-# --- MÓDULO ORÇAMENTOS (SALVAMENTO) ---
+# --- MÓDULO FINANCEIRO: CONTAS A PAGAR ---
 
+def salvar_conta_pagar(dados):
+    """ Insere uma nova conta pendente no banco de dados """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        # Reutiliza sua função de tratamento para limpar R$ e vírgulas
+        d = tratar_numericos(dados.copy(), ['valor_original'])
+        cursor.execute("""INSERT INTO contas_pagar (descricao, credor, data_vencimento, valor_original) 
+            VALUES (:descricao, :credor, :data_vencimento, :valor_original)""", d)
+        conn.commit(); return True
+    except Exception as e:
+        print(f"Erro ao salvar Conta: {e}"); return False
+    finally: conn.close()
+
+def buscar_contas_pagar_flexivel(termo=""):
+    """ Busca por credor ou descrição (seguindo seu padrão LIKE) """
+    conn = conectar(); cursor = conn.cursor()
+    query = """SELECT * FROM contas_pagar 
+               WHERE (descricao LIKE ? OR credor LIKE ?)
+               ORDER BY data_vencimento ASC"""
+    cursor.execute(query, (f"%{termo}%", f"%{termo}%"))
+    res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res
+
+def baixar_conta_pagar(id_conta, dados_baixa):
+    """ Registra o pagamento de uma conta (Baixa) """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        # Criamos uma cópia para não alterar o dicionário original
+        d = tratar_numericos(dados_baixa.copy(), ['valor_pago'])
+        
+        # ADICIONAMOS o id_conta dentro do dicionário 'd' para o SQL encontrar
+        d['id_conta'] = id_conta 
+
+        cursor.execute("""UPDATE contas_pagar SET 
+                          valor_pago = :valor_pago, 
+                          data_pagamento = :data_pagamento, 
+                          forma_pagamento = :forma_pagamento, 
+                          status = 'PAGO' 
+                          WHERE id_conta = :id_conta""", d) # Agora usamos :id_conta aqui também
+        
+        conn.commit()
+        return cursor.rowcount > 0 # Retorna True se realmente alterou a linha
+    except Exception as e:
+        print(f"Erro ao dar baixa: {e}")
+        return False
+    finally: 
+        conn.close()
+
+
+
+# --- MÓDULO ORÇAMENTOS (SALVAMENTO) ---
 def salvar_orcamento_completo(dados_h, lista_i):
     conn = conectar(); cursor = conn.cursor()
     try:

@@ -5,8 +5,7 @@ from produtos import Produtos, Servicos            # Importa as classes de produ
 from estoque import Estoque          # Importa a nova classe de controle de estoque
 from orcamento import Orcamentos  # Importa a nova classe que você está criando
 from os_modulo import OS  # Importa a classe do novo arquivo que vamos criar
-
-
+from cont_pagar import ContasPagar  # Agora o Python vai achar o arquivo cont_pagar.py
 
 # =============================================================================
 # CLASSE: CABEÇALHO (LOGO E TÍTULO)
@@ -107,7 +106,13 @@ class MenuLateral(ctk.CTkFrame):
         janela.abrir_os() # Método que criaremos dentro do arquivo os_modulo.py
 
 
-    def abrir_contas_pagar(self): self.limpar_interface(); print("Contas a pagar aberto")
+    def abrir_contas_pagar(self):
+        """ Limpa a interface central e carrega o módulo de Contas a Pagar """
+        self.limpar_interface()
+        # Chama a classe ContasPagar que está dentro do seu arquivo cont_pagar.py
+        janela = ContasPagar(master=self.interface_central)
+        janela.abrir_contas_pagar() 
+
     def abrir_contas_receber(self): self.limpar_interface(); print("Contas a receber aberto")
     def abrir_caixa(self): self.limpar_interface(); print("Caixa aberto")
 
