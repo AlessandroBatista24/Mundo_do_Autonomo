@@ -337,13 +337,65 @@ def salvar_conta_pagar(dados):
     finally: conn.close()
 
 def buscar_contas_pagar_flexivel(termo=""):
-    """ Busca por credor ou descrição (seguindo seu padrão LIKE) """
     conn = conectar(); cursor = conn.cursor()
-    query = """SELECT * FROM contas_pagar 
-               WHERE (descricao LIKE ? OR credor LIKE ?)
-               ORDER BY data_vencimento ASC"""
-    cursor.execute(query, (f"%{termo}%", f"%{termo}%"))
+    # Se não houver termo de busca, mostra apenas as PENDENTES
+    if not termo:
+        query = "SELECT * FROM contas_pagar WHERE status = 'PENDENTE' ORDER BY data_vencimento ASC"
+        cursor.execute(query)
+    else:
+        query = "SELECT * FROM contas_pagar WHERE (descricao LIKE ? OR credor LIKE ?) ORDER BY data_vencimento ASC"
+        cursor.execute(query, (f"%{termo}%", f"%{termo}%"))
     res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res
+
+def buscar_contas_receber_flexivel(termo=""):
+    conn = conectar(); cursor = conn.cursor()
+    # Se não houver termo de busca, mostra apenas as PENDENTES
+    if not termo:
+        query = "SELECT * FROM contas_receber WHERE status = 'PENDENTE' ORDER BY data_vencimento ASC"
+        cursor.execute(query)
+    else:
+        query = "SELECT * FROM contas_receber WHERE (cliente LIKE ? OR descricao LIKE ?) ORDER BY data_vencimento ASC"
+        cursor.execute(query, (f"%{termo}%", f"%{termo}%"))
+    res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res
+
+def buscar_extrato_caixa(filtro="", data_inicio=None, data_fim=None):
+    conn = conectar(); cursor = conn.cursor()
+    hoje = datetime.now().strftime("%d/%m/%Y")
+    
+    query_base = """
+        SELECT data_recebimento as data, cliente as origem, descricao, 'ENTRADA' as tipo, valor_recebido as valor, forma_recebimento as forma 
+        FROM contas_receber WHERE status = 'RECEBIDO'
+        UNION ALL
+        SELECT data_pagamento as data, credor as origem, descricao, 'SAIDA' as tipo, valor_pago as valor, forma_pagamento as forma 
+        FROM contas_pagar WHERE status = 'PAGO'
+        UNION ALL
+        SELECT data_movimento as data, categoria as origem, descricao, tipo, valor, forma_pagamento as forma 
+        FROM fluxo_caixa
+    """
+    
+    # Se NÃO houver filtro e NÃO houver data definida, mostra apenas o que é de HOJE (2026)
+    if not filtro and not data_inicio:
+        sql = f"SELECT * FROM ({query_base}) WHERE data = '{hoje}'"
+    else:
+        sql = f"SELECT * FROM ({query_base})"
+        if filtro:
+            sql += f" WHERE (origem LIKE '%{filtro}%' OR descricao LIKE '%{filtro}%' OR forma LIKE '%{filtro}%')"
+            
+    sql += " ORDER BY substr(data,7,4) DESC, substr(data,4,2) DESC, substr(data,1,2) DESC"
+    
+    cursor.execute(sql)
+    res = [dict(l) for l in cursor.fetchall()]
+    conn.close()
+
+    # O filtro de período via Python continua igual para caso o usuário queira ver o passado
+    if data_inicio and data_fim:
+        try:
+            d_ini = datetime.strptime(data_inicio, "%d/%m/%Y")
+            d_fim = datetime.strptime(data_fim, "%d/%m/%Y")
+            return [m for m in res if d_ini <= datetime.strptime(m['data'], "%d/%m/%Y") <= d_fim]
+        except: return res
+    return res
+
 
 def baixar_conta_pagar(id_conta, dados_baixa):
     """ Registra o pagamento de uma conta (Baixa) """
@@ -500,11 +552,17 @@ def salvar_conta_receber(dados):
     finally: conn.close()
 
 def buscar_contas_receber_flexivel(termo=""):
-    """ Busca títulos por cliente ou descrição """
     conn = conectar(); cursor = conn.cursor()
-    query = "SELECT * FROM contas_receber WHERE cliente LIKE ? OR descricao LIKE ? ORDER BY data_vencimento ASC"
-    cursor.execute(query, (f"%{termo}%", f"%{termo}%"))
+    # Se a busca estiver vazia, mostra só o que falta receber
+    if not termo:
+        query = "SELECT * FROM contas_receber WHERE status = 'PENDENTE' ORDER BY data_vencimento ASC"
+        cursor.execute(query)
+    else:
+        # Se digitar algo, mostra tudo (Pendente e Recebido) que combine com o nome
+        query = "SELECT * FROM contas_receber WHERE (cliente LIKE ? OR descricao LIKE ?) ORDER BY data_vencimento ASC"
+        cursor.execute(query, (f"%{termo}%", f"%{termo}%"))
     res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res
+
 
 def baixar_conta_receber(id_receber, dados_baixa):
     """ Registra o recebimento e altera status para RECEBIDO """
@@ -520,3 +578,124 @@ def baixar_conta_receber(id_receber, dados_baixa):
     except Exception as e:
         print(f"Erro ao dar baixa no recebível: {e}"); return False
     finally: conn.close()
+# =============================================================================
+# MÓDULO DE FLUXO DE CAIXA E APORTES (FINANCEIRO)
+# =============================================================================
+
+def criar_tabela_caixa():
+    """ Cria a tabela para aportes e movimentações manuais """
+    conn = conectar(); cursor = conn.cursor()
+    cursor.execute("""CREATE TABLE IF NOT EXISTS fluxo_caixa (
+        id_movimento INTEGER PRIMARY KEY AUTOINCREMENT,
+        data_movimento TEXT NOT NULL,
+        descricao TEXT NOT NULL,
+        tipo TEXT NOT NULL, -- 'ENTRADA', 'SAIDA' ou 'APORTE'
+        categoria TEXT,     -- 'INICIAL', 'EMPRESTIMO', 'INVESTIDOR'
+        valor REAL NOT NULL,
+        forma_pagamento TEXT)""")
+    conn.commit(); conn.close()
+
+def registrar_movimento_caixa(dados):
+    """ Salva um aporte ou movimentação avulsa no banco """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        # Reutiliza sua função de tratar_numericos que já existe no database.py
+        d = tratar_numericos(dados.copy(), ['valor'])
+        cursor.execute("""INSERT INTO fluxo_caixa 
+            (data_movimento, descricao, tipo, categoria, valor, forma_pagamento) 
+            VALUES (:data, :desc, :tipo, :cat, :valor, :forma)""", d)
+        conn.commit(); return True
+    except Exception as e:
+        print(f"Erro ao registrar no caixa: {e}"); return False
+    finally: conn.close()
+
+def buscar_extrato_caixa(filtro="", data_inicio=None, data_fim=None):
+    conn = conectar(); cursor = conn.cursor()
+    from datetime import datetime
+    hoje = datetime.now().strftime("%d/%m/%Y")
+    
+    # 1. Padronização das tabelas (Garante que 'credor' e 'cliente' virem 'origem')
+    query_base = """
+        SELECT data_recebimento as data, cliente as origem, descricao, 'ENTRADA' as tipo, valor_recebido as valor, forma_recebimento as forma 
+        FROM contas_receber WHERE status = 'RECEBIDO'
+        UNION ALL
+        SELECT data_pagamento as data, credor as origem, descricao, 'SAIDA' as tipo, valor_pago as valor, forma_pagamento as forma 
+        FROM contas_pagar WHERE status = 'PAGO'
+        UNION ALL
+        SELECT data_movimento as data, categoria as origem, descricao, tipo, valor, forma_pagamento as forma 
+        FROM fluxo_caixa
+    """
+    
+    # 2. Criamos a consulta final usando a base como uma sub-tabela
+    # O filtro de texto (LIKE) agora ignora a trava de data se houver algo digitado
+    sql_final = f"SELECT * FROM ({query_base}) AS extrato"
+    params = []
+
+    if filtro:
+        sql_final += " WHERE (origem LIKE ? OR descricao LIKE ? OR forma LIKE ?)"
+        f = f"%{filtro}%"
+        params = [f, f, f]
+    elif not data_inicio:
+        # Se NÃO houver busca por texto e NÃO houver data manual, trava no HOJE
+        sql_final += " WHERE data = ?"
+        params = [hoje]
+
+    # Ordenação cronológica correta
+    sql_final += " ORDER BY substr(data,7,4) DESC, substr(data,4,2) DESC, substr(data,1,2) DESC"
+    
+    cursor.execute(sql_final, params)
+    res = [dict(l) for l in cursor.fetchall()]
+    conn.close()
+
+    # 3. Filtro de Período via Python (Apenas se o usuário preencher as datas)
+    if data_inicio and data_fim:
+        try:
+            d_ini = datetime.strptime(data_inicio, "%d/%m/%Y")
+            d_fim = datetime.strptime(data_fim, "%d/%m/%Y")
+            return [m for m in res if d_ini <= datetime.strptime(m['data'], "%d/%m/%Y") <= d_fim]
+        except:
+            return res
+            
+    return res
+
+
+    # --- Filtro de Período via Python (mais seguro para datas em texto) ---
+    if data_inicio and data_fim:
+        try:
+            from datetime import datetime
+            d_ini = datetime.strptime(data_inicio, "%d/%m/%Y")
+            d_fim = datetime.strptime(data_fim, "%d/%m/%Y")
+            
+            filtrado = []
+            for m in res:
+                d_mov = datetime.strptime(m['data'], "%d/%m/%Y")
+                if d_ini <= d_mov <= d_fim:
+                    filtrado.append(m)
+            return filtrado
+        except:
+            return res # Se a data for inválida, ignora o filtro e retorna tudo
+            
+    return res
+
+def calcular_resumo_caixa():
+    """ Calcula Saldos Total, do Dia e Aportes para os cards do topo """
+    extrato = buscar_extrato_caixa()
+    from datetime import datetime
+    hoje = datetime.now().strftime("%d/%m/%Y")
+    
+    resumo = {"total": 0.0, "dia": 0.0, "aportes": 0.0}
+
+    for m in extrato:
+        try:
+            v = float(m['valor'] or 0)
+            if m['tipo'] in ['ENTRADA', 'APORTE']:
+                resumo['total'] += v
+                if m['data'] == hoje: resumo['dia'] += v
+                if m['tipo'] == 'APORTE': resumo['aportes'] += v
+            else: # SAIDA
+                resumo['total'] -= v
+                if m['data'] == hoje: resumo['dia'] -= v
+        except:
+            continue
+            
+    return resumo
