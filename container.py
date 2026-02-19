@@ -7,6 +7,7 @@ from orcamento import Orcamentos  # Importa a nova classe que você está criand
 from os_modulo import OS  # Importa a classe do novo arquivo que vamos criar
 from cont_pagar import ContasPagar  # Agora o Python vai achar o arquivo cont_pagar.py
 from cont_receber import ContasReceber  # Certifique-se que o nome do arquivo seja cont_receber.py
+from caixa import Caixa  # Importa a classe do novo arquivo caixa.py
 
 # =============================================================================
 # CLASSE: CABEÇALHO (LOGO E TÍTULO)
@@ -129,7 +130,17 @@ class MenuLateral(ctk.CTkFrame):
         janela.abrir_contas_receber()
 
 
-    def abrir_caixa(self): self.limpar_interface(); print("Caixa aberto")
+    def abrir_caixa(self):
+        """ Limpa a interface central e carrega o módulo de Fluxo de Caixa e Aportes """
+        # 1. Remove qualquer tela que esteja aberta no centro
+        self.limpar_interface()
+        
+        # 2. Instancia a tela de Caixa passando o frame central como palco
+        janela = Caixa(master=self.interface_central)
+        
+        # 3. Chama o método para desenhar o cabeçalho, cards e extrato
+        janela.abrir_caixa()
+
 
 # =============================================================================
 # CLASSE: INTERFACE CENTRAL (O PALCO)
