@@ -1,32 +1,33 @@
-Mundo do Autônomo 🛠️
-O Mundo do Autônomo é uma aplicação desktop moderna desenvolvida em Python para centralizar a gestão de profissionais autônomos. O foco é oferecer agilidade no cadastro e controle financeiro através de uma interface intuitiva e persistência de dados robusta.
-🚀 Progresso Atual e Funcionalidades
-✅ Estrutura de Interface (Concluída)
-Navegação Dinâmica: Sistema de troca de telas otimizado que limpa a interface central e carrega novos módulos sem abrir novas janelas.
-Identidade Visual Padronizada: Design focado em usabilidade com widgets arredondados e paleta de cores verde/cinza customizada.
-Arquitetura Modular: Separação total de responsabilidades entre arquivos (Main, Principal, Containers e Negócio).
-✅ Módulos Desenvolvidos
-Cadastro de Clientes (PF/PJ): Inclusão de CPF/CNPJ e dados de contato com persistência direta no banco de dados.
-Gestão de Produtos: Cadastro completo com sistema de cálculo em tempo real de preço de venda (Custo + Impostos + Margem %).
-Gestão de Serviços: Módulo dedicado para precificação de mão de obra com cálculo automatizado.
-Persistência de Dados: Integração total com SQLite para armazenamento permanente.
-🛠️ Tecnologias e Conceitos Aplicados
-Python 3.x: Linguagem principal.
-CustomTkinter: Interface gráfica moderna com suporte a temas e cantos arredondados.
-SQLite3: Banco de dados relacional embutido (sem necessidade de instalação externa).
-POO (Programação Orientada a Objetos): Uso de herança e composição para criar componentes reutilizáveis.
-Lógica de Eventos: Uso de bind("<KeyRelease>") para feedback visual e cálculos instantâneos na interface.
-📁 Organização dos Arquivos
-main.py: Inicializador do programa e loop principal.
-principal.py: Maestro da janela e responsável por disparar a criação do banco de dados.
-database.py: Core do sistema. Contém a estrutura das tabelas (SQL) e as funções de inserção e tratamento de dados.
-container.py: Cérebro da navegação, gerenciando o menu lateral e a troca de frames.
-clientes.py: Lógica das telas de Pessoa Física e Jurídica.
-produtos.py: Lógica de precificação, widgets dinâmicos (ComboBox) e cadastro de itens/serviços
+🛠️ Mundo do Autônomo
+O Mundo do Autônomo é uma aplicação desktop de alta performance desenvolvida em Python para centralizar a gestão de profissionais autônomos e pequenos negócios. O sistema une uma interface moderna com uma lógica de negócio robusta, automatizando desde o orçamento até o fluxo de caixa.
+🚀 Novas Funcionalidades e Progresso
+✅ Gestão de Vendas e Serviços (Concluído)
+Orçamentos Inteligentes: Adição de itens (produtos/serviços) com cálculo de totais em tempo real e geração de PDF profissional via FPDF.
+Conversão para O.S.: Aprovação de orçamentos que gera automaticamente uma Ordem de Serviço, baixa o estoque e lança o valor no financeiro.
+Controle de Estoque: Monitoramento automático de quantidades com sinalização visual de itens esgotados ou em nível crítico.
+✅ Módulo Financeiro Integrado (Concluído)
+Contas a Receber: Lançamentos automáticos vindos das O.S. e cadastros manuais, com sistema de "Baixa" e confirmação de forma de pagamento (Pix, Cartão, etc.).
+Contas a Pagar: Gestão de despesas fixas e fornecedores com alertas de vencimento integrados.
+Persistência Avançada: Relacionamento entre tabelas no SQLite3, garantindo integridade entre o que é vendido e o que é recebido.
+🛠️ Tecnologias e Bibliotecas
+Python 3.x: Linguagem core.
+CustomTkinter: Interface gráfica ultra moderna com temas dinâmicos.
+SQLite3: Banco de dados relacional embutido para persistência local.
+FPDF: Biblioteca para geração dinâmica de documentos PDF.
+Pillow (PIL): Processamento de imagens para logotipos e ícones.
+📁 Estrutura do Projeto Atualizada
+main.py: Ponto de entrada e inicialização do loop.
+principal.py: Gerencia a janela raiz e componentes globais.
+database.py: Core do sistema. Contém o esquema SQL e toda a lógica de persistência e automação (Conversão O.S -> Financeiro).
+container.py: Cérebro da navegação e menu lateral.
+orcamento.py: Módulo de vendas, carrinho de compras e geração de PDF.
+os_modulo.py: Gestão de ordens de serviço pendentes e aprovadas.
+cont_receber.py & cont_pagar.py: Módulos financeiros de controle de fluxo.
+produtos.py & clientes.py: Telas de cadastro técnico e comercial.
 🔧 Como Executar
-Instale as dependências:
+Instale as dependências necessárias:
 bash
-pip install customtkinter
+pip install customtkinter pillow fpdf
 Usa il codice con cautela.
 
 Execute o sistema:
@@ -34,4 +35,4 @@ bash
 python main.py
 Usa il codice con cautela.
 
-Nota: O banco de dados sistema_gestao.db será criado automaticamente na primeira execução.
+Nota: O banco de dados sistema_gestao.db é auto-gerado na primeira execução, criando todas as tabelas financeiras e operacionais necessárias.

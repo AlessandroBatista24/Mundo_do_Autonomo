@@ -305,8 +305,12 @@ class Servicos(ctk.CTkFrame):
         dados = {c: e.get().replace("R$", "").replace(",", ".").strip() for c, e in self.inputs.items()}
         
         if self.modo_edicao:
-            database.atualizar_servico_com_desc(dados, self.desc_original)
-            messagebox.showinfo("Sucesso", "Atualizado!")
+            # O nome correto conforme seu database.py é atualizar_servico
+            if database.atualizar_servico(dados, self.desc_original):
+                messagebox.showinfo("Sucesso", "Serviço atualizado com sucesso!")
+            else:
+                messagebox.showerror("Erro", "Não foi possível atualizar no banco.")
+
         else:
             database.salvar_servico(dados)
             messagebox.showinfo("Sucesso", "Salvo!")

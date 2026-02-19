@@ -6,6 +6,7 @@ from estoque import Estoque          # Importa a nova classe de controle de esto
 from orcamento import Orcamentos  # Importa a nova classe que você está criando
 from os_modulo import OS  # Importa a classe do novo arquivo que vamos criar
 from cont_pagar import ContasPagar  # Agora o Python vai achar o arquivo cont_pagar.py
+from cont_receber import ContasReceber  # Certifique-se que o nome do arquivo seja cont_receber.py
 
 # =============================================================================
 # CLASSE: CABEÇALHO (LOGO E TÍTULO)
@@ -113,7 +114,21 @@ class MenuLateral(ctk.CTkFrame):
         janela = ContasPagar(master=self.interface_central)
         janela.abrir_contas_pagar() 
 
-    def abrir_contas_receber(self): self.limpar_interface(); print("Contas a receber aberto")
+    def abrir_contas_receber(self):
+        """ Limpa a interface central e carrega o módulo de Contas a Receber """
+        # 1. Limpa o que estiver na tela agora
+        self.limpar_interface()
+        
+        # 2. Importa a classe do arquivo que você criou (ajuste o nome do arquivo se necessário)
+        from cont_receber import ContasReceber 
+        
+        # 3. Instancia a tela passando a interface central como 'palco'
+        janela = ContasReceber(master=self.interface_central)
+        
+        # 4. Chama o método que desenha os campos e a tabela de recebíveis
+        janela.abrir_contas_receber()
+
+
     def abrir_caixa(self): self.limpar_interface(); print("Caixa aberto")
 
 # =============================================================================

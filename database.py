@@ -14,52 +14,35 @@ def criar_banco():
         conn = conectar()
         cursor = conn.cursor()
         
-        # CLIENTES PF
-        cursor.execute("""CREATE TABLE IF NOT EXISTS clientes_pf (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, cpf TEXT NOT NULL UNIQUE,
-            logradouro TEXT NOT NULL, numero TEXT, bairro TEXT, cidade TEXT, estado TEXT,
-            cep TEXT, telefone TEXT NOT NULL, email TEXT)""")
-        
-        # CLIENTES PJ
-        cursor.execute("""CREATE TABLE IF NOT EXISTS clientes_pj (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, empresa TEXT NOT NULL, fantasia TEXT,
-            cnpj TEXT NOT NULL UNIQUE, inscricao TEXT, logradouro TEXT NOT NULL,
-            numero TEXT, bairro TEXT, cidade TEXT, estado TEXT, cep TEXT,
-            telefone TEXT NOT NULL, email TEXT)""")
+        # ... (Tabelas de Clientes, O.S., Orçamentos, Produtos e Serviços permanecem iguais)
+        # Manter o que você já tem acima e ADICIONAR estas abaixo:
 
-        # ORDENS DE SERVIÇO (MESTRE)
-        cursor.execute("""CREATE TABLE IF NOT EXISTS ordens_servico (
-            id_os INTEGER PRIMARY KEY AUTOINCREMENT, tipo_cliente TEXT, cliente_id INTEGER, 
-            nome_cliente TEXT, documento TEXT, endereco_completo TEXT, data_emissao TEXT, 
-            data_aprovacao TEXT, total_produtos REAL, total_servicos REAL, 
-            valor_geral REAL, status TEXT DEFAULT 'Em Execução')""")
+        # 1. TABELA CONTAS A RECEBER (ESSENCIAL PARA O LANÇAMENTO DA O.S.)
+        cursor.execute("""CREATE TABLE IF NOT EXISTS contas_receber (
+            id_receber INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente TEXT NOT NULL, 
+            descricao TEXT NOT NULL, 
+            id_os_origem INTEGER, 
+            data_vencimento TEXT NOT NULL, 
+            valor_total REAL NOT NULL,
+            valor_recebido REAL DEFAULT 0, 
+            data_recebimento TEXT, 
+            forma_recebimento TEXT, 
+            status TEXT DEFAULT 'PENDENTE')""")
 
-        # ITENS DA O.S. (DETALHE)
-        cursor.execute("""CREATE TABLE IF NOT EXISTS os_itens (
-            id_item_os INTEGER PRIMARY KEY AUTOINCREMENT, id_os INTEGER, 
-            referencia_id INTEGER, tipo_item TEXT, quantidade REAL, 
-            valor_unitario REAL, valor_total_item REAL)""")
+        # 2. TABELA CONTAS A PAGAR
+        cursor.execute("""CREATE TABLE IF NOT EXISTS contas_pagar (
+            id_conta INTEGER PRIMARY KEY AUTOINCREMENT,
+            descricao TEXT NOT NULL, 
+            credor TEXT NOT NULL, 
+            data_vencimento TEXT NOT NULL,
+            valor_original REAL NOT NULL, 
+            valor_pago REAL DEFAULT 0,
+            data_pagamento TEXT, 
+            forma_pagamento TEXT, 
+            status TEXT DEFAULT 'PENDENTE')""")
 
-        # ORÇAMENTOS (CABEÇALHO)
-        cursor.execute("""CREATE TABLE IF NOT EXISTS orcamentos (
-            id_orcamento INTEGER PRIMARY KEY AUTOINCREMENT, tipo_cliente TEXT, cliente_id INTEGER, 
-            nome_cliente TEXT, documento TEXT, endereco_completo TEXT, data_emissao TEXT, 
-            validade_dias INTEGER, total_produtos REAL, total_servicos REAL, 
-            valor_geral REAL, status TEXT DEFAULT 'Pendente')""")
-        
-        # PRODUTOS
-        cursor.execute("""CREATE TABLE IF NOT EXISTS produtos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, produto TEXT NOT NULL, fabricante TEXT NOT NULL,
-            v_compra REAL NOT NULL, imposto REAL DEFAULT 0, custo_fixo REAL DEFAULT 0,
-            margem_lucro REAL DEFAULT 0, quantidade REAL NOT NULL, unidade TEXT NOT NULL, v_venda REAL NOT NULL)""")
-        
-        # SERVIÇOS
-        cursor.execute("""CREATE TABLE IF NOT EXISTS servicos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, descricao TEXT NOT NULL,
-            v_custo REAL NOT NULL, v_fixo REAL DEFAULT 0, v_imposto REAL DEFAULT 0,
-            v_margem REAL DEFAULT 0, v_final REAL NOT NULL)""")
-
-        # ESTOQUE E ITENS DE ORÇAMENTO
+        # O restante (Estoque e Itens) continua igual
         cursor.execute("CREATE TABLE IF NOT EXISTS estoque (id_estoque INTEGER PRIMARY KEY AUTOINCREMENT, produto_id INTEGER, qtd_atual REAL, qtd_minima REAL)")
         
         cursor.execute("""CREATE TABLE IF NOT EXISTS orcamento_itens (
@@ -69,8 +52,10 @@ def criar_banco():
         
         conn.commit()
         conn.close()
+        print("Banco de dados e tabelas financeiras verificados com sucesso!")
     except Exception as e:
         print(f"Erro ao iniciar banco: {e}")
+
 
 # --- UTILITÁRIO DE LIMPEZA NUMÉRICA ---
 def tratar_numericos(dicionario, campos):
@@ -134,6 +119,26 @@ def salvar_cliente_pj(dados):
         print(f"Erro ao salvar PJ: {e}"); return False
     finally: conn.close()
 
+def atualizar_cliente_pj(dados):
+    """ Atualiza dados do cliente PJ baseado no CNPJ """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        # O WHERE cnpj=:cnpj garante que alteramos a empresa certa
+        cursor.execute("""UPDATE clientes_pj SET 
+                          empresa=:empresa, fantasia=:fantasia, inscricao=:inscricao, 
+                          logradouro=:logradouro, numero=:numero, bairro=:bairro, 
+                          cidade=:cidade, estado=:estado, cep=:cep, 
+                          telefone=:telefone, email=:email 
+                          WHERE cnpj=:cnpj""", dados)
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception as e:
+        print(f"Erro ao atualizar PJ: {e}")
+        return False
+    finally:
+        conn.close()
+
+
 def deletar_cliente_pj(cnpj):
     """ Remove um cliente PJ pelo CNPJ """
     conn = conectar(); cursor = conn.cursor()
@@ -144,34 +149,78 @@ def deletar_cliente_pj(cnpj):
         print(f"Erro ao deletar PJ: {e}"); return False
     finally: conn.close()
 
-# --- MÓDULO PRODUTOS ---
+
+# --- MÓDULO PRODUTOS (CORRIGIDO) ---
 
 def salvar_produto(dados):
-    """ Salva produto com tratamento numérico """
+    """ Insere um novo produto tratando os valores numéricos """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        # Limpa R$, % e vírgulas antes de salvar
+        d = tratar_numericos(dados.copy(), ['v_compra', 'v_venda', 'imposto', 'custo_fixo', 'margem_lucro', 'quantidade'])
+        
+        cursor.execute("""INSERT INTO produtos (produto, fabricante, v_compra, imposto, custo_fixo, margem_lucro, quantidade, unidade, v_venda) 
+            VALUES (:produto, :fabricante, :v_compra, :imposto, :custo_fixo, :margem_lucro, :quantidade, :unidade, :v_venda)""", d)
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Erro ao salvar Produto: {e}")
+        return False
+    finally:
+        conn.close()
+
+def atualizar_produto_composto(dados, prod_original, fab_original):
+    """ Atualiza o produto usando o nome e fabricante originais como referência """
     conn = conectar(); cursor = conn.cursor()
     try:
         d = tratar_numericos(dados.copy(), ['v_compra', 'v_venda', 'imposto', 'custo_fixo', 'margem_lucro', 'quantidade'])
-        cursor.execute("""INSERT INTO produtos (produto, fabricante, v_compra, imposto, custo_fixo, margem_lucro, quantidade, unidade, v_venda) 
-            VALUES (:produto, :fabricante, :v_compra, :imposto, :custo_fixo, :margem_lucro, :quantidade, :unidade, :v_venda)""", d)
-        conn.commit(); return True
-    except Exception as e:
-        print(f"Erro ao salvar Produto: {e}"); return False
-    finally: conn.close()
+        
+        # Adicionamos os valores originais para o WHERE encontrar o item certo
+        d['p_orig'] = prod_original
+        d['f_orig'] = fab_original
 
-def deletar_produto_composto(p, f):
-    """ Remove produto pela chave composta Nome + Fabricante """
+        cursor.execute("""UPDATE produtos SET 
+                          produto=:produto, fabricante=:fabricante, v_compra=:v_compra, 
+                          imposto=:imposto, custo_fixo=:custo_fixo, margem_lucro=:margem_lucro, 
+                          quantidade=:quantidade, unidade=:unidade, v_venda=:v_venda 
+                          WHERE produto=:p_orig AND fabricante=:f_orig""", d)
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception as e:
+        print(f"Erro ao atualizar Produto: {e}")
+        return False
+    finally:
+        conn.close()
+def deletar_produto_composto(produto, fabricante):
+    """ Remove um produto baseado no nome e fabricante """
     conn = conectar(); cursor = conn.cursor()
     try:
-        cursor.execute("DELETE FROM produtos WHERE produto = ? AND fabricante = ?", (p, f))
-        conn.commit(); return cursor.rowcount > 0
+        # Primeiro, buscamos o ID para garantir a limpeza em orçamentos/os
+        cursor.execute("SELECT id FROM produtos WHERE produto = ? AND fabricante = ?", (produto, fabricante))
+        res = cursor.fetchone()
+        
+        if res:
+            id_prod = res['id']
+            # Limpeza preventiva para não dar erro de integridade
+            cursor.execute("DELETE FROM orcamento_itens WHERE referencia_id = ? AND tipo_item = 'produto'", (id_prod,))
+            cursor.execute("DELETE FROM os_itens WHERE referencia_id = ? AND tipo_item = 'produto'", (id_prod,))
+            
+            # Agora deleta o produto de fato
+            cursor.execute("DELETE FROM produtos WHERE id = ?", (id_prod,))
+            conn.commit()
+            return True
+        return False
     except Exception as e:
-        print(f"Erro ao deletar Produto: {e}"); return False
-    finally: conn.close()
+        print(f"Erro ao deletar Produto: {e}")
+        return False
+    finally:
+        conn.close()
 
-# --- MÓDULO SERVIÇOS ---
+
+# --- MÓDULO SERVIÇOS (CORRIGIDO: SALVAR, ATUALIZAR E DELETAR) ---
 
 def salvar_servico(dados):
-    """ Salva serviço com tratamento numérico """
+    """ Insere um novo serviço tratando os valores numéricos """
     conn = conectar(); cursor = conn.cursor()
     try:
         d = tratar_numericos(dados.copy(), ['v_custo', 'v_fixo', 'v_imposto', 'v_margem', 'v_final'])
@@ -181,6 +230,57 @@ def salvar_servico(dados):
     except Exception as e:
         print(f"Erro ao salvar Serviço: {e}"); return False
     finally: conn.close()
+
+def atualizar_servico(dados, desc_original):
+    """ Atualiza o serviço tratando valores e vinculando a descrição correta """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        # 1. Limpa os valores (R$, vírgulas, etc)
+        d = tratar_numericos(dados.copy(), ['v_custo', 'v_fixo', 'v_imposto', 'v_margem', 'v_final'])
+        
+        # 2. Garante que a descrição original está no dicionário para o WHERE
+        d['desc_orig'] = desc_original
+        
+        # 3. Executa o SQL usando as chaves do dicionário (:chave)
+        cursor.execute("""UPDATE servicos SET 
+                          descricao=:descricao, 
+                          v_custo=:v_custo, 
+                          v_fixo=:v_fixo, 
+                          v_imposto=:v_imposto, 
+                          v_margem=:v_margem, 
+                          v_final=:v_final 
+                          WHERE descricao=:desc_orig""", d)
+        
+        conn.commit()
+        return cursor.rowcount > 0 # Retorna True se uma linha foi alterada
+    except Exception as e:
+        print(f"Erro ao atualizar Serviço: {e}")
+        return False
+    finally: 
+        conn.close()
+
+def deletar_servico(descricao):
+    """ Remove o serviço e limpa referências em orçamentos/OS para evitar erros """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        # Busca o ID para limpar os itens vinculados antes de deletar o pai
+        cursor.execute("SELECT id FROM servicos WHERE descricao = ?", (descricao,))
+        res = cursor.fetchone()
+        
+        if res:
+            id_serv = res['id']
+            # Limpeza preventiva de vínculos
+            cursor.execute("DELETE FROM orcamento_itens WHERE referencia_id = ? AND tipo_item = 'servico'", (id_serv,))
+            cursor.execute("DELETE FROM os_itens WHERE referencia_id = ? AND tipo_item = 'servico'", (id_serv,))
+            
+            # Deleta o serviço
+            cursor.execute("DELETE FROM servicos WHERE id = ?", (id_serv,))
+            conn.commit(); return True
+        return False
+    except Exception as e:
+        print(f"Erro ao deletar Serviço: {e}"); return False
+    finally: conn.close()
+
 # --- MÓDULO DE BUSCAS FLEXÍVEIS (LIKE) ---
 
 def buscar_clientes_pf_flexivel(termo):
@@ -286,21 +386,78 @@ def salvar_orcamento_completo(dados_h, lista_i):
     except Exception as e:
         print(f"Erro Orçamento: {e}"); conn.rollback(); return False
     finally: conn.close()
+# =============================================================================
+# MÓDULO SERVIÇOS (SALVAR, ATUALIZAR E DELETAR)
+# =============================================================================
 
-# --- MÓDULO O.S. (APROVAÇÃO E CONVERSÃO) ---
+def salvar_servico(dados):
+    """ Insere um novo serviço tratando os valores numéricos """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        d = tratar_numericos(dados.copy(), ['v_custo', 'v_fixo', 'v_imposto', 'v_margem', 'v_final'])
+        cursor.execute("""INSERT INTO servicos (descricao, v_custo, v_fixo, v_imposto, v_margem, v_final) 
+            VALUES (:descricao, :v_custo, :v_fixo, :v_imposto, :v_margem, :v_final)""", d)
+        conn.commit(); return True
+    except Exception as e:
+        print(f"Erro ao salvar Serviço: {e}"); return False
+    finally: conn.close()
+
+def atualizar_servico(dados, desc_original):
+    """ Atualiza o serviço existente usando a descrição antiga como referência no WHERE """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        d = tratar_numericos(dados.copy(), ['v_custo', 'v_fixo', 'v_imposto', 'v_margem', 'v_final'])
+        d['desc_orig'] = desc_original
+        cursor.execute("""UPDATE servicos SET 
+                          descricao=:descricao, v_custo=:v_custo, v_fixo=:v_fixo, 
+                          v_imposto=:v_imposto, v_margem=:v_margem, v_final=:v_final 
+                          WHERE descricao=:desc_orig""", d)
+        conn.commit(); return cursor.rowcount > 0
+    except Exception as e:
+        print(f"Erro ao atualizar Serviço: {e}"); return False
+    finally: conn.close()
+
+def deletar_servico(descricao):
+    """ Remove o serviço pelo nome """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM servicos WHERE descricao = ?", (descricao,))
+        conn.commit(); return cursor.rowcount > 0
+    except Exception as e:
+        print(f"Erro ao deletar Serviço: {e}"); return False
+    finally: conn.close()
+
+
+# =============================================================================
+# MÓDULO O.S. (APROVAÇÃO, CONVERSÃO E FINANCEIRO AUTOMÁTICO)
+# =============================================================================
 
 def aprovar_e_converter_orcamento(id_orcamento):
     conn = conectar(); cursor = conn.cursor()
     try:
+        # 1. Busca dados do orçamento original
         cursor.execute("SELECT * FROM orcamentos WHERE id_orcamento = ?", (id_orcamento,))
         orc = cursor.fetchone()
         if not orc: return False
+        
         data_atual = datetime.now().strftime("%d/%m/%Y %H:%M")
+        
+        # 2. Insere na tabela de Ordens de Serviço (O.S.)
         cursor.execute("""INSERT INTO ordens_servico (tipo_cliente, cliente_id, nome_cliente, documento, endereco_completo, data_emissao, data_aprovacao, total_produtos, total_servicos, valor_geral) 
                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", 
                        (orc['tipo_cliente'], orc['cliente_id'], orc['nome_cliente'], orc['documento'], 
                         orc['endereco_completo'], orc['data_emissao'], data_atual, orc['total_produtos'], orc['total_servicos'], orc['valor_geral']))
+        
         id_nova_os = cursor.lastrowid
+
+        # 3. LANÇAMENTO NO FINANCEIRO (Onde estava o erro)
+        # IMPORTANTE: Verifique se os nomes batem com sua tabela (cliente, descricao, id_os_origem, data_vencimento, valor_total, status)
+        cursor.execute("""INSERT INTO contas_receber 
+            (cliente, descricao, id_os_origem, data_vencimento, valor_total, status) 
+            VALUES (?, ?, ?, ?, ?, 'PENDENTE')""", 
+            (orc['nome_cliente'], f"Serviço O.S. Nº {id_nova_os}", id_nova_os, datetime.now().strftime("%d/%m/%Y"), orc['valor_geral']))
+
+        # 4. Transfere os itens e baixa o estoque
         cursor.execute("SELECT * FROM orcamento_itens WHERE id_orcamento = ?", (id_orcamento,))
         itens = cursor.fetchall()
         for item in itens:
@@ -308,19 +465,58 @@ def aprovar_e_converter_orcamento(id_orcamento):
                               VALUES (?, ?, ?, ?, ?, ?)""", (id_nova_os, item['referencia_id'], item['tipo_item'], item['quantidade'], item['valor_unitario'], item['valor_total_item']))
             if item['tipo_item'] == 'produto':
                 cursor.execute("UPDATE produtos SET quantidade = quantidade - ? WHERE id = ?", (item['quantidade'], item['referencia_id']))
+        
+        # 5. Remove orçamento antigo
         cursor.execute("DELETE FROM orcamento_itens WHERE id_orcamento = ?",(id_orcamento,))
         cursor.execute("DELETE FROM orcamentos WHERE id_orcamento = ?",(id_orcamento,))
-        conn.commit(); return True
+        
+        conn.commit()
+        print(f"DEBUG: O.S {id_nova_os} e Lançamento Financeiro criados!") # Verifique se isso aparece no terminal
+        return True
     except Exception as e:
-        print(f"Erro Conversão: {e}"); conn.rollback(); return False
-    finally: conn.close()
+        print(f"Erro na Conversão/Financeiro: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
 
-def excluir_orcamento_recusado(id_orcamento):
+
+
+# =============================================================================
+# MÓDULO CONTAS A RECEBER
+# =============================================================================
+
+def salvar_conta_receber(dados):
+    """ Insere um novo título a receber manualmente """
     conn = conectar(); cursor = conn.cursor()
     try:
-        cursor.execute("DELETE FROM orcamento_itens WHERE id_orcamento = ?", (id_orcamento,))
-        cursor.execute("DELETE FROM orcamentos WHERE id_orcamento = ?", (id_orcamento,))
+        d = tratar_numericos(dados.copy(), ['valor_total'])
+        cursor.execute("""INSERT INTO contas_receber 
+            (cliente, descricao, data_vencimento, valor_total, status) 
+            VALUES (:cliente, :descricao, :data_vencimento, :valor_total, 'PENDENTE')""", d)
         conn.commit(); return True
-    except:
-        conn.rollback(); return False
+    except Exception as e:
+        print(f"Erro ao salvar Conta a Receber: {e}"); return False
+    finally: conn.close()
+
+def buscar_contas_receber_flexivel(termo=""):
+    """ Busca títulos por cliente ou descrição """
+    conn = conectar(); cursor = conn.cursor()
+    query = "SELECT * FROM contas_receber WHERE cliente LIKE ? OR descricao LIKE ? ORDER BY data_vencimento ASC"
+    cursor.execute(query, (f"%{termo}%", f"%{termo}%"))
+    res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res
+
+def baixar_conta_receber(id_receber, dados_baixa):
+    """ Registra o recebimento e altera status para RECEBIDO """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        d = tratar_numericos(dados_baixa.copy(), ['valor_recebido'])
+        d['id_r'] = id_receber
+        cursor.execute("""UPDATE contas_receber SET 
+                          valor_recebido = :valor_recebido, data_recebimento = :data_recebimento, 
+                          forma_recebimento = :forma_recebimento, status = 'RECEBIDO' 
+                          WHERE id_receber = :id_r""", d)
+        conn.commit(); return cursor.rowcount > 0
+    except Exception as e:
+        print(f"Erro ao dar baixa no recebível: {e}"); return False
     finally: conn.close()
