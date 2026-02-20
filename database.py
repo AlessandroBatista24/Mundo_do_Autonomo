@@ -59,8 +59,7 @@ def criar_banco():
             valor_unitario REAL, valor_total_item REAL)""")
         
         conn.commit()
-        conn.close()
-        print("Banco de dados e tabelas financeiras verificados com sucesso!")
+        conn.close()        
     except Exception as e:
         print(f"Erro ao iniciar banco: {e}")
 
@@ -529,12 +528,15 @@ def aprovar_e_converter_orcamento(id_orcamento):
         
         id_nova_os = cursor.lastrowid
 
-        # 3. LANÇAMENTO NO FINANCEIRO (Onde estava o erro)
-        # IMPORTANTE: Verifique se os nomes batem com sua tabela (cliente, descricao, id_os_origem, data_vencimento, valor_total, status)
+        # 3. LANÇAMENTO NO FINANCEIRO (Usando o ID da NOVA O.S.)
         cursor.execute("""INSERT INTO contas_receber 
             (cliente, descricao, id_os_origem, data_vencimento, valor_total, status) 
             VALUES (?, ?, ?, ?, ?, 'PENDENTE')""", 
-            (orc['nome_cliente'], f"Serviço O.S. Nº {id_nova_os}", id_nova_os, datetime.now().strftime("%d/%m/%Y"), orc['valor_geral']))
+            (orc['nome_cliente'], 
+             f"Serviço O.S. Nº {id_nova_os}", 
+             id_nova_os,                      
+             datetime.now().strftime("%d/%m/%Y"), 
+             orc['valor_geral']))
 
         # 4. Transfere os itens e baixa o estoque
         cursor.execute("SELECT * FROM orcamento_itens WHERE id_orcamento = ?", (id_orcamento,))
@@ -550,14 +552,16 @@ def aprovar_e_converter_orcamento(id_orcamento):
         cursor.execute("DELETE FROM orcamentos WHERE id_orcamento = ?",(id_orcamento,))
         
         conn.commit()
-        print(f"DEBUG: O.S {id_nova_os} e Lançamento Financeiro criados!") # Verifique se isso aparece no terminal
-        return True
+        print(f"DEBUG: O.S {id_nova_os} criada!") 
+        return id_nova_os  # <--- Retorna o número da nova O.S. para o PDF
+
     except Exception as e:
         print(f"Erro na Conversão/Financeiro: {e}")
         conn.rollback()
         return False
     finally:
         conn.close()
+
 
 # =============================================================================
 # MÓDULO CONTAS A RECEBER
@@ -635,12 +639,10 @@ def registrar_movimento_caixa(dados):
     finally: conn.close()
 
 def buscar_extrato_caixa(filtro="", data_inicio=None, data_fim=None):
-    """ Busca movimentações para a tabela, garantindo que o Aporte/Inicial nunca suma. """
     conn = conectar(); cursor = conn.cursor()
-    from datetime import datetime
     hoje = datetime.now().strftime("%d/%m/%Y")
     
-    # Query unificada que junta todas as fontes de dinheiro
+    # Query unificada
     query_base = """
         SELECT data_recebimento as data, cliente as origem, descricao, 'ENTRADA' as tipo, valor_recebido as valor, forma_recebimento as forma 
         FROM contas_receber WHERE status = 'RECEBIDO'
@@ -655,31 +657,46 @@ def buscar_extrato_caixa(filtro="", data_inicio=None, data_fim=None):
     sql_final = f"SELECT * FROM ({query_base}) AS extrato"
     params = []
 
-    # Lógica de Filtro: Se houver busca por texto, ignora a trava de data
+    # --- CORREÇÃO DA BUSCA POR NÚMERO DE O.S. ---
     if filtro:
+        # Adicionamos a busca na coluna 'descricao', onde está escrito "Serviço O.S. Nº 26"
         sql_final += " WHERE (origem LIKE ? OR descricao LIKE ? OR forma LIKE ?)"
         f = f"%{filtro}%"
         params = [f, f, f]
     elif not data_inicio:
-        # EXCEÇÃO DE SEGURANÇA: Mostra hoje, MAS mantém APORTES e INICIAIS sempre visíveis
-        sql_final += " WHERE data = ? OR tipo = 'APORTE' OR origem = 'INICIAL'"
+        # Se não houver filtro nem data, mostra hoje e os aportes
+        sql_final += " WHERE data = ? OR tipo = 'APORTE'"
         params = [hoje]
 
-    # Ordenação cronológica (Ano-Mês-Dia)
+    # Ordenação (Ano, Mês, Dia)
     sql_final += " ORDER BY substr(data,7,4) DESC, substr(data,4,2) DESC, substr(data,1,2) DESC"
     
     cursor.execute(sql_final, params)
     res = [dict(l) for l in cursor.fetchall()]
     conn.close()
 
-    # Filtro de Período via Python (mais preciso para strings de data)
+    # --- CORREÇÃO DO FILTRO DE DATA (PERÍODO) ---
     if data_inicio and data_fim:
         try:
+            # Converte as strings de busca para objetos de data reais
             d_ini = datetime.strptime(data_inicio, "%d/%m/%Y")
             d_fim = datetime.strptime(data_fim, "%d/%m/%Y")
-            # Filtra o período, mas preserva o APORTE/INICIAL na lista para o saldo visual
-            return [m for m in res if (d_ini <= datetime.strptime(m['data'], "%d/%m/%Y") <= d_fim) or m['tipo'] == 'APORTE']
-        except: return res
+            
+            resultado_filtrado = []
+            for m in res:
+                try:
+                    # Converte a data de cada registro para comparar
+                    data_mov = datetime.strptime(m['data'], "%d/%m/%Y")
+                    if d_ini <= data_mov <= d_fim:
+                        resultado_filtrado.append(m)
+                    # Mantém aportes sempre visíveis se desejar, ou remova a linha abaixo
+                    elif m['tipo'] == 'APORTE':
+                        resultado_filtrado.append(m)
+                except:
+                    continue
+            return resultado_filtrado
+        except:
+            return res
             
     return res
 

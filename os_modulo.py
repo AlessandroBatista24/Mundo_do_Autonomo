@@ -56,13 +56,23 @@ class OS(ctk.CTkFrame):
 
     def confirmar_aprovacao(self, orc):
         if messagebox.askyesno("Aprovar", f"Converter orçamento {orc['id_orcamento']} em O.S.?"):
-            # Buscamos os itens DETALHADOS antes da conversão
+            # 1. Buscamos os itens antes da conversão
             itens_pdf = database.buscar_itens_do_orcamento(orc['id_orcamento'])
             
-            if database.aprovar_e_converter_orcamento(orc['id_orcamento']):
-                self.gerar_pdf_os(orc, itens_pdf)
-                messagebox.showinfo("Sucesso", "Ordem de Serviço gerada!")
+            # 2. A função agora retorna o NOVO ID (ex: 26) em vez de apenas True
+            novo_id_os = database.aprovar_e_converter_orcamento(orc['id_orcamento'])
+            
+            if novo_id_os:
+                # 3. CRIAMOS UMA CÓPIA dos dados para o PDF usar o número correto
+                dados_para_pdf = dict(orc) 
+                dados_para_pdf['id_orcamento'] = novo_id_os # Aqui trocamos o 21 pelo 26
+                
+                # 4. Geramos o PDF com o número 26
+                self.gerar_pdf_os(dados_para_pdf, itens_pdf)
+                
+                messagebox.showinfo("Sucesso", f"Ordem de Serviço Nº {novo_id_os} gerada!")
                 self.listar_pendentes()
+
 
     def confirmar_recusa(self, orc):
         if messagebox.askyesno("Excluir", "Deseja deletar este orçamento?"):
