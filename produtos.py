@@ -60,23 +60,32 @@ class JanelaBusca(ctk.CTkToplevel):
         self.callback(item) # Executa a função da tela anterior passando o item escolhido
         self.destroy()      # Fecha a janela de busca
 
-# --- CLASSE DE PRODUTOS ---
-# Define o painel de gerenciamento de produtos herdando de CTkFrame (um quadro da interface)
 class Produtos(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
-        # Inicializa a classe pai (Frame)
         super().__init__(master, **kwargs)
-        self.inputs = {}          # Dicionário para guardar as referências de cada campo de entrada
-        self.id_original = None   # Armazena o ID (Nome/Fabricante) para saber qual item editar
-        self.modo_edicao = False  # Controla se o botão 'Salvar' deve criar um novo ou atualizar existente
+        self.inputs = {}
+        self.id_original = None
+        self.modo_edicao = False
 
-    # Método que desenha a interface na tela
-        # Método que desenha a interface na tela
     def abrir_produtos(self):
-        # Faz o frame ocupar toda a janela e define o fundo branco
-        self.place(x=0, y=0, relwidth=1, relheight=1); self.configure(fg_color="white")
+        """ Cria a interface de produtos com cabeçalho padronizado e largura total """
+        self.place(x=0, y=0, relwidth=1, relheight=1)
+        self.configure(fg_color="white")
         
-        # Lista de configuração atualizada: [UN, MT, RL, CX, KG]
+        # --- ESSENCIAL: Configura a coluna para expandir e preencher o espaço ---
+        self.grid_columnconfigure(1, weight=1)
+
+        # --- CABEÇALHO COM LARGURA TOTAL (sticky="ew" e SEM padx) ---
+        header = ctk.CTkFrame(self, fg_color="#145B06", height=50, corner_radius=0)
+        header.grid(row=0, column=0, columnspan=2, sticky="ew") # Removido padx daqui
+        header.grid_propagate(False)
+        
+        ctk.CTkLabel(header, text="📦 CADASTRO DE PRODUTOS", 
+                     font=("Arial", 16, "bold"), text_color="white").pack(pady=12)
+
+         # Espaçador entre header e campos
+        ctk.CTkLabel(self, text="", height=1).grid(row=1, column=0)
+        
         campos = [
             ("Produto:", "produto", "Nome...", "entry", self.aplicar_titulo),
             ("Fabricante:", "fabricante", "Fabricante...", "entry", self.aplicar_titulo),
@@ -89,9 +98,9 @@ class Produtos(ctk.CTkFrame):
             ("Venda Final:", "v_venda", "R$ 0,00", "entry", None)
         ]
 
-        # Loop para criar automaticamente cada Label e Input
+        # Loop de campos (Começando na row 2)
         for i, (txt, chave, msg, tipo, func) in enumerate(campos):
-            ctk.CTkLabel(self, text=txt, font=("Arial", 14, "bold"), text_color="#145B06").grid(row=i, column=0, padx=10, pady=3, sticky="w")
+            ctk.CTkLabel(self, text=txt, font=("Arial", 14, "bold"), text_color="#145B06").grid(row=i+2, column=0, padx=25, pady=3, sticky="w")
             
             if tipo == "entry":
                 widget = ctk.CTkEntry(self, width=400, height=35, placeholder_text=msg, fg_color="#F0F0F0", border_width=0, corner_radius=50, text_color="black")
@@ -100,57 +109,51 @@ class Produtos(ctk.CTkFrame):
                 if chave in ["v_compra", "imposto", "custo_fixo", "margem_lucro"]:
                     widget.bind("<KeyRelease>", lambda e: self.calcular_venda(), add="+")
             else:
-                # --- CAMPO DE SELEÇÃO VERDE PADRONIZADO ---
                 widget = ctk.CTkComboBox(self, width=400, height=35, values=msg, 
                                          fg_color="#E9F0EA",          
-                                         button_color="#1E5D3A",       # Botão da seta Verde Escuro
-                                         button_hover_color="#145B06", # Hover da seta
-                                         border_width=0, 
-                                         corner_radius=50, 
-                                         text_color="black",           # Texto Branco para contraste
-                                         dropdown_fg_color="#2E8B57",  # Fundo da lista aberta
-                                         dropdown_text_color="black",  # Texto da lista aberta
-                                         dropdown_hover_color="#1E5D3A") # Seleção na lista
+                                         button_color="#1E5D3A", 
+                                         button_hover_color="#145B06",
+                                         border_width=0, corner_radius=50, text_color="black",
+                                         dropdown_fg_color="#2E8B57", dropdown_text_color="black")
             
-            widget.grid(row=i, column=1, padx=5, pady=3, sticky="w")
+            widget.grid(row=i+2, column=1, padx=5, pady=3, sticky="w")
             self.inputs[chave] = widget
 
-        # Configura os botões de ação com suas respectivas cores e comandos
-        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", hover_color="#145B06", command=self.fluxo_salvamento)
-        self.btn_salvar.place(x=150, y=420)
-        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, fg_color="#D2691E", hover_color="#145B06", command=self.iniciar_busca)
-        self.btn_buscar.place(x=300, y=420)
-        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, fg_color="#696969", hover_color="#145B06", command=self.resetar_interface)
-        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, fg_color="#B22222", hover_color="#145B06", command=self.excluir_produto)
+        # --- BOTÕES REPOSICIONADOS ---
+        y_btn = 460
+        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, height=35, fg_color="#2E8B57", hover_color="#145B06", font=("Arial", 12, "bold"), command=self.fluxo_salvamento)
+        self.btn_salvar.place(x=150, y=y_btn)
+        
+        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, height=35, fg_color="#D2691E", hover_color="#145B06", font=("Arial", 12, "bold"), command=self.iniciar_busca)
+        self.btn_buscar.place(x=300, y=y_btn)
+        
+        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, height=35, fg_color="#696969", hover_color="#145B06", font=("Arial", 12, "bold"), command=self.resetar_interface)
+        
+        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, height=35, fg_color="#B22222", hover_color="#145B06", font=("Arial", 12, "bold"), command=self.excluir_produto)
 
-    # Função que deixa a primeira letra maiúscula enquanto o usuário digita
     def aplicar_titulo(self, e):
         t = e.get().title(); p = e.index("insert"); e.delete(0, "end"); e.insert(0, t); e.icursor(p)
 
-    # Realiza a conta matemática para projetar o valor de venda final
     def calcular_venda(self):
         try:
-            # Captura os valores e trata vírgula para ponto decimal
             compra = float(self.inputs["v_compra"].get().replace(",", ".") or 0)
             imp = float(self.inputs["imposto"].get().replace(",", ".") or 0)/100
             fix = float(self.inputs["custo_fixo"].get().replace(",", ".") or 0)/100
             mrg = float(self.inputs["margem_lucro"].get().replace(",", ".") or 0)/100
-            # Aplica a soma das porcentagens sobre o valor base
             venda = compra + (compra * (imp + fix + mrg))
-            # Atualiza o campo de venda (abre para escrita, limpa, escreve e bloqueia de novo)
             self.inputs["v_venda"].configure(state="normal")
             self.inputs["v_venda"].delete(0, 'end'); self.inputs["v_venda"].insert(0, f"R$ {venda:.2f}")
             self.inputs["v_venda"].configure(state="readonly")
-        except: pass # Se o usuário digitar algo que não seja número, ignora o erro
+        except: pass
 
-    # Inicia o processo de pesquisa no banco de dados
     def iniciar_busca(self):
         termo = self.inputs["produto"].get()
-        res = database.buscar_produtos_flexivel(termo) # Chama a função do seu arquivo database.py
-        if res: JanelaBusca(res, self.preencher_campos, "produto") # Abre a pop-up que comentamos antes
+        res = database.buscar_produtos_flexivel(termo)
+        if res: 
+            from produtos import JanelaBusca
+            JanelaBusca(res, self.preencher_campos, "produto")
         else: messagebox.showinfo("Busca", "Não encontrado.")
 
-    # Pega os dados de um produto selecionado na busca e coloca nas caixas de texto
     def preencher_campos(self, item):
         self.resetar_interface()
         for k, v in item.items():
@@ -160,23 +163,23 @@ class Produtos(ctk.CTkFrame):
                     self.inputs[k].delete(0, 'end'); self.inputs[k].insert(0, str(v))
                 else: self.inputs[k].set(str(v))
         self.inputs["v_venda"].configure(state="readonly")
-        self.id_original = (item['produto'], item['fabricante']) # Salva a identidade para caso de edição
-        self.modo_edicao = True # Muda o comportamento do botão Salvar
-        self.btn_buscar.place_forget() # Esconde busca
-        self.btn_retornar.place(x=300, y=420) # Mostra retorno
-        self.btn_deletar.place(x=450, y=420) # Mostra exclusão
+        self.id_original = (item['produto'], item['fabricante'])
+        self.modo_edicao = True
+        
+        y_btn = 460
+        self.btn_buscar.place_forget()
+        self.btn_retornar.place(x=300, y=y_btn)
+        self.btn_deletar.place(x=450, y=y_btn)
 
-    # Gerencia se o sistema deve criar um registro novo ou atualizar um antigo
     def fluxo_salvamento(self):
-    # LIMPEZA DOS DADOS: Remove "R$", espaços e garante que use ponto em vez de vírgula
         dados = {}
         for c, e in self.inputs.items():
             valor = e.get().replace("R$", "").replace(",", ".").strip()
             dados[c] = valor
 
         if self.modo_edicao:
-            database.atualizar_produto_composto(dados, self.id_original[0], self.id_original[1])
-            messagebox.showinfo("Sucesso", "Atualizado!")
+            if database.atualizar_produto_composto(dados, self.id_original[0], self.id_original[1]):
+                messagebox.showinfo("Sucesso", "Atualizado!")
         else:
             if database.salvar_produto(dados): 
                 messagebox.showinfo("Sucesso", "Salvo!")
@@ -184,35 +187,50 @@ class Produtos(ctk.CTkFrame):
                 messagebox.showerror("Erro", "Produto/Fabricante já existe!")
         self.resetar_interface()
 
-
-    # Pergunta se o usuário tem certeza e deleta o item
     def excluir_produto(self):
         if messagebox.askyesno("Confirma", "Excluir item?"):
-            database.deletar_produto_composto(self.id_original[0], self.id_original[1]); self.resetar_interface()
+            database.deletar_produto_composto(self.id_original[0], self.id_original[1])
+            self.resetar_interface()
 
-    # Limpa todos os campos e volta os botões ao estado original (Novo Cadastro)
     def resetar_interface(self):
         for e in self.inputs.values():
-            if isinstance(e, ctk.CTkEntry): e.configure(state="normal"); e.delete(0, 'end')
+            if isinstance(e, ctk.CTkEntry): 
+                e.configure(state="normal")
+                e.delete(0, 'end')
         self.inputs["v_venda"].configure(state="readonly")
-        self.id_original = None; self.modo_edicao = False
-        self.btn_deletar.place_forget(); self.btn_retornar.place_forget()
-        self.btn_buscar.place(x=300, y=420)
-# --- CLASSE DE SERVIÇOS ---
-# Define o painel de gerenciamento de serviços (ex: mão de obra, manutenção)
+        self.id_original = None
+        self.modo_edicao = False
+        
+        y_btn = 460
+        self.btn_deletar.place_forget()
+        self.btn_retornar.place_forget()
+        self.btn_buscar.place(x=300, y=y_btn)
+        
 class Servicos(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
-        self.inputs = {}          # Dicionário para armazenar as referências dos campos de entrada
-        self.desc_original = None # Armazena a descrição original para identificar o item na edição
-        self.modo_edicao = False  # Flag que indica se estamos editando ou criando um novo serviço
+        self.inputs = {}          
+        self.desc_original = None 
+        self.modo_edicao = False  
 
-    # Método para construir a interface visual de serviços
     def abrir_servicos(self):
-        # Posiciona o frame preenchendo toda a tela e define cor branca
-        self.place(x=0, y=0, relwidth=1, relheight=1); self.configure(fg_color="white")
+        self.place(x=0, y=0, relwidth=1, relheight=1)
+        self.configure(fg_color="white")
         
-        # Lista de campos: (Rótulo, Chave técnica, Texto de exemplo, Função de formatação)
+        # Garante que a coluna 1 (onde estão os campos) se ajuste
+        self.grid_columnconfigure(1, weight=1)
+
+        # --- CABEÇALHO PADRONIZADO (LARGURA TOTAL) ---
+        header = ctk.CTkFrame(self, fg_color="#145B06", height=50, corner_radius=0)
+        header.grid(row=0, column=0, columnspan=2, sticky="ew") # sticky="ew" faz ocupar tudo
+        header.grid_propagate(False)
+        
+        ctk.CTkLabel(header, text="🛠️ CADASTRO DE SERVIÇOS", 
+                     font=("Arial", 16, "bold"), text_color="white").pack(pady=12)
+
+        # Espaçador
+        ctk.CTkLabel(self, text="", height=10).grid(row=1, column=0)
+
         campos = [
             ("Descrição:", "descricao", "Manutenção...", self.aplicar_titulo),
             ("Valor Custo:", "v_custo", "0.00", None),
@@ -222,37 +240,34 @@ class Servicos(ctk.CTkFrame):
             ("Preço Final:", "v_final", "R$ 0,00", None)
         ]
         
-        # Loop para criar os campos (Labels e Entries) dinamicamente
         for i, (txt, chave, msg, func) in enumerate(campos):
-            # Cria o rótulo (Label) verde à esquerda
-            ctk.CTkLabel(self, text=txt, font=("Arial", 14, "bold"), text_color="#145B06").grid(row=i, column=0, padx=10, pady=5, sticky="w")
+            ctk.CTkLabel(self, text=txt, font=("Arial", 14, "bold"), text_color="#145B06").grid(row=i+2, column=0, padx=25, pady=5, sticky="w")
             
-            # Define se o campo será apenas leitura (para o Preço Final) ou normal
             est = "readonly" if chave == "v_final" else "normal"
-            
-            # Cria a caixa de entrada (Entry) com bordas arredondadas (corner_radius=50)
             entry = ctk.CTkEntry(self, width=400, height=35, placeholder_text=msg, state=est, 
                                  fg_color="#F0F0F0" if est=="normal" else "#E0E0E0", 
                                  border_width=0, corner_radius=50, text_color="black")
             
-            # Se houver função (como aplicar_titulo), vincula ao evento de soltar a tecla
             if func: entry.bind("<KeyRelease>", lambda event, e=entry, f=func: f(e))
-            
-            # Se for um campo de valor, vincula ao cálculo automático do preço final
             if chave in ["v_custo", "v_fixo", "v_imposto", "v_margem"]:
                 entry.bind("<KeyRelease>", lambda e: self.calcular_servico(), add="+")
                 
-            entry.grid(row=i, column=1, padx=5, pady=5, sticky="w")
-            self.inputs[chave] = entry # Guarda a referência no dicionário
+            entry.grid(row=i+2, column=1, padx=5, pady=5, sticky="w")
+            self.inputs[chave] = entry 
 
-        # Configuração e posicionamento dos botões de ação
-        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", hover_color="#145B06", command=self.fluxo_salvamento)
-        self.btn_salvar.place(x=150, y=350)
-        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, fg_color="#D2691E", hover_color="#145B06", command=self.iniciar_busca)
-        self.btn_buscar.place(x=300, y=350)
-        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, fg_color="#696969", hover_color="#145B06", command=self.resetar_interface)
-        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, fg_color="#B22222", hover_color="#145B06", command=self.excluir_servico)
+        # Botões de ação reposicionados
+        y_btn = 400
+        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, height=35, fg_color="#2E8B57", hover_color="#145B06", font=("Arial", 12, "bold"), command=self.fluxo_salvamento)
+        self.btn_salvar.place(x=150, y=y_btn)
+        
+        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, height=35, fg_color="#D2691E", hover_color="#145B06", font=("Arial", 12, "bold"), command=self.iniciar_busca)
+        self.btn_buscar.place(x=300, y=y_btn)
+        
+        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, height=35, fg_color="#696969", hover_color="#145B06", font=("Arial", 12, "bold"), command=self.resetar_interface)
+        
+        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, height=35, fg_color="#B22222", hover_color="#145B06", font=("Arial", 12, "bold"), command=self.excluir_servico)
 
+   
     # Formata o texto para "Formato De Título" (primeiras letras maiúsculas)
     def aplicar_titulo(self, e):
         t = e.get().title(); p = e.index("insert"); e.delete(0, "end"); e.insert(0, t); e.icursor(p)
@@ -286,6 +301,7 @@ class Servicos(ctk.CTkFrame):
             messagebox.showinfo("Busca", "Não encontrado.")
 
     # Preenche os campos da tela com os dados do serviço escolhido na busca
+        # Preenche os campos da tela com os dados do serviço escolhido na busca
     def preencher_campos(self, item):
         self.resetar_interface()
         for c, v in item.items():
@@ -293,11 +309,29 @@ class Servicos(ctk.CTkFrame):
                 self.inputs[c].configure(state="normal")
                 self.inputs[c].delete(0, 'end'); self.inputs[c].insert(0, str(v))
         self.inputs["v_final"].configure(state="readonly")
-        self.desc_original = item['descricao'] # Salva a descrição para referência na atualização
-        self.modo_edicao = True                # Ativa o modo de edição
-        self.btn_buscar.place_forget()         # Oculta botão de busca
-        self.btn_retornar.place(x=300, y=350)  # Mostra botão de retornar
-        self.btn_deletar.place(x=450, y=350)   # Mostra botão de exclusão
+        self.desc_original = item['descricao'] 
+        self.modo_edicao = True                
+        
+        # --- AJUSTE DE ALINHAMENTO ---
+        y_padrao = 400 
+        self.btn_buscar.place_forget()         
+        self.btn_retornar.place(x=300, y=y_padrao)  
+        self.btn_deletar.place(x=450, y=y_padrao)   
+
+    # Limpa todos os campos e restaura os botões originais da tela
+    def resetar_interface(self):
+        for e in self.inputs.values(): 
+            e.configure(state="normal")
+            e.delete(0, 'end')
+        self.inputs["v_final"].configure(state="readonly")
+        self.desc_original = None
+        self.modo_edicao = False
+        
+        # --- AJUSTE DE ALINHAMENTO ---
+        y_padrao = 400
+        self.btn_deletar.place_forget()
+        self.btn_retornar.place_forget()
+        self.btn_buscar.place(x=300, y=y_padrao)
 
     # Gerencia o salvamento dos dados (Insert ou Update)
     def fluxo_salvamento(self):
@@ -324,9 +358,20 @@ class Servicos(ctk.CTkFrame):
 
     # Limpa todos os campos e restaura os botões originais da tela
     def resetar_interface(self):
-        for e in self.inputs.values(): e.configure(state="normal"); e.delete(0, 'end')
+        for e in self.inputs.values(): 
+            e.configure(state="normal")
+            e.delete(0, 'end')
+        
         self.inputs["v_final"].configure(state="readonly")
-        self.desc_original = None; self.modo_edicao = False
-        self.btn_deletar.place_forget(); self.btn_retornar.place_forget()
-        self.btn_buscar.place(x=300, y=350)
+        self.desc_original = None
+        self.modo_edicao = False
+        
+        # --- CORREÇÃO DO POSICIONAMENTO ---
+        y_padrao = 400 # O mesmo y que você usou no abrir_servicos
+        self.btn_deletar.place_forget()
+        self.btn_retornar.place_forget()
+        
+        # Aqui estava 350, por isso ele "pulava" para cima ou sumia
+        self.btn_buscar.place(x=300, y=y_padrao) 
+
 

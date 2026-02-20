@@ -88,21 +88,34 @@ def mascara_telefone(e):
     fmt = f"({v[:2]}) {v[2:7]}-{v[7:11]}" if len(v) > 7 else v
     e.delete(0, "end"); e.insert(0, fmt[:15])
 
-# =============================================================================
-# CLASSE: PESSOA FÍSICA (PF)
-# =============================================================================
 class PessoaFisica(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
-        self.inputs = {}          # Dicionário para gerenciar os campos de texto
-        self.modo_edicao = False  # Controla se o botão SALVAR vai criar ou atualizar
-        self.id_original_cpf = None # Backup do CPF para localizar o registro no banco
+        self.inputs = {}          
+        self.modo_edicao = False  
+        self.id_original_cpf = None 
 
     def abrir_fisica(self):
-        """ Cria e posiciona todos os elementos da tela de Pessoa Física. """
-        self.place(x=0, y=0, relwidth=1, relheight=1); self.configure(fg_color="white")
+        """ Cria e posiciona todos os elementos da tela de Pessoa Física com Largura Total. """
+        self.place(x=0, y=0, relwidth=1, relheight=1)
+        self.configure(fg_color="white")
         
-        # Lista de configuração dos campos para criação automática
+        # --- ESSENCIAL: Configura as colunas para permitir expansão ---
+        self.grid_columnconfigure(1, weight=1)
+
+        # --- CABEÇALHO PADRONIZADO (OCUPANDO 100% DA LARGURA) ---
+        # Removido qualquer padx do grid para ele encostar nas bordas
+        header = ctk.CTkFrame(self, fg_color="#145B06", height=50, corner_radius=0)
+        header.grid(row=0, column=0, columnspan=2, sticky="ew") 
+        header.grid_propagate(False) 
+        
+        ctk.CTkLabel(header, text="👤 CADASTRO DE PESSOA FÍSICA", 
+                     font=("Arial", 16, "bold"), text_color="white").pack(pady=12)
+
+        # Espaçador entre header e campos
+        ctk.CTkLabel(self, text="", height=10).grid(row=1, column=0)
+
+        # Lista de campos permanece a mesma...
         campos = [
             ("Nome Completo:", "nome", "Digite o nome...", aplicar_titulo),
             ("CPF:", "cpf", "000.000.000-00", mascara_cpf),
@@ -116,72 +129,103 @@ class PessoaFisica(ctk.CTkFrame):
             ("Email:", "email", "exemplo@email.com", None)
         ]
         
-        # Gera os campos na tela usando um loop
+        # Loop de campos (Iniciando na row 2)
+        # Note que agora usamos padx=25 nos Labels para eles não colarem na borda esquerda
         for i, (txt, chave, msg, func) in enumerate(campos):
-            ctk.CTkLabel(self, text=txt, font=("Arial", 13, "bold"), text_color="#145B06").grid(row=i, column=0, padx=10, pady=2, sticky="w")
-            entry = ctk.CTkEntry(self, width=380, height=30, placeholder_text=msg, fg_color="#F0F0F0", border_width=0, corner_radius=10, text_color="black")
-            if func: entry.bind("<KeyRelease>", lambda event, e=entry, f=func: f(e))
-            entry.grid(row=i, column=1, padx=5, pady=2, sticky="w")
+            ctk.CTkLabel(self, text=txt, font=("Arial", 13, "bold"), text_color="#145B06").grid(row=i+2, column=0, padx=25, pady=4, sticky="w")
+            
+            entry = ctk.CTkEntry(self, width=380, height=30, placeholder_text=msg, 
+                                 fg_color="#F0F0F0", border_width=0, corner_radius=10, text_color="black")
+            
+            if func: 
+                entry.bind("<KeyRelease>", lambda event, e=entry, f=func: f(e))
+            
+            entry.grid(row=i+2, column=1, padx=5, pady=4, sticky="w")
             self.inputs[chave] = entry
-
-        # Botões de controle da interface
-        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", hover_color="#145B06", command=self.fluxo_salvamento)
-        self.btn_salvar.place(x=130, y=420)
+        # --- BOTÕES DE CONTROLE (Posição Y ajustada para 480) ---
+        y_botoes = 480
         
-        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, fg_color="#D2691E", hover_color="#145B06", command=self.iniciar_busca)
-        self.btn_buscar.place(x=260, y=420)
+        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, height=35, fg_color="#2E8B57", 
+                                        hover_color="#145B06", font=("Arial", 12, "bold"), command=self.fluxo_salvamento)
+        self.btn_salvar.place(x=130, y=y_botoes)
         
-        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, fg_color="#696969", hover_color="#145B06", command=self.resetar_interface)
+        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, height=35, fg_color="#D2691E", 
+                                        hover_color="#145B06", font=("Arial", 12, "bold"), command=self.iniciar_busca)
+        self.btn_buscar.place(x=260, y=y_botoes)
         
-        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, fg_color="#B22222", hover_color="#145B06", command=self.excluir_pf)
+        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, height=35, fg_color="#696969", 
+                                          hover_color="#145B06", font=("Arial", 12, "bold"), command=self.resetar_interface)
+        
+        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, height=35, fg_color="#B22222", 
+                                         hover_color="#145B06", font=("Arial", 12, "bold"), command=self.excluir_pf)
 
     def iniciar_busca(self):
-        """ Pega o nome/CPF e abre a janela de resultados. """
         busca = self.inputs["nome"].get().strip() or self.inputs["cpf"].get().strip()
         if not busca: return messagebox.showwarning("Aviso", "Digite Nome ou CPF!")
         res = database.buscar_clientes_pf_flexivel(busca)
-        if res: JanelaBuscaClientes(res, self.preencher_campos, "pf")
-        else: messagebox.showinfo("Busca", "Nenhum cliente encontrado.")
+        if res: 
+            from clientes import JanelaBuscaClientes
+            JanelaBuscaClientes(res, self.preencher_campos, "pf")
+        else: 
+            messagebox.showinfo("Busca", "Nenhum cliente encontrado.")
 
     def preencher_campos(self, cliente):
-        """ Quando selecionado na busca, carrega os dados nos campos. """
         self.resetar_interface()
         for k, v in cliente.items():
             if k in self.inputs: self.inputs[k].insert(0, str(v) if v else "")
         self.id_original_cpf = cliente['cpf']
         self.modo_edicao = True
+        
         # Gerencia a troca de botões para modo Edição
+        y_botoes = 480
         self.btn_buscar.place_forget()
-        self.btn_retornar.place(x=260, y=420)
-        self.btn_deletar.place(x=390, y=420)
+        self.btn_retornar.place(x=260, y=y_botoes)
+        self.btn_deletar.place(x=390, y=y_botoes)
 
     def fluxo_salvamento(self):
-        """ Executa a ação de Salvar ou Atualizar no banco. """
-        dados = {k: v.get() for k, v in self.inputs.items()}
+        """ Executa a ação de Salvar ou Atualizar tratando a validação de e-mail """
+        dados = {k: v.get().strip() for k, v in self.inputs.items()} # .strip() remove espaços vazios
+        
         if self.modo_edicao:
-            database.atualizar_cliente_pf(dados)
-            messagebox.showinfo("Sucesso", "Atualizado!")
+            res = database.atualizar_cliente_pf(dados)
+            if res == "EMAIL_INVALIDO":
+                messagebox.showerror("Erro", "E-mail inválido! Use o formato: nome@dominio.com")
+            elif res:
+                messagebox.showinfo("Sucesso", "Atualizado com sucesso!")
+                self.resetar_interface()
+            else:
+                messagebox.showerror("Erro", "Falha ao atualizar dados.")
         else:
-            database.salvar_cliente_pf(dados)
-            messagebox.showinfo("Sucesso", "Salvo!")
-        self.resetar_interface()
+            # TENTA SALVAR
+            res = database.salvar_cliente_pf(dados)
+            
+            if res == "EMAIL_INVALIDO":
+                messagebox.showerror("Atenção", "E-mail inválido! Digite um e-mail real.")
+            elif res == True:
+                messagebox.showinfo("Sucesso", "Cliente salvo no banco de dados!")
+                self.resetar_interface()
+            elif res == "CPF_DUPLICADO":
+                messagebox.showwarning("Aviso", "Este CPF já está cadastrado!")
+            else:
+                messagebox.showerror("Erro", "Erro desconhecido ao salvar.")
+
 
     def excluir_pf(self):
-        """ Deleta o cliente após confirmação. """
         if messagebox.askyesno("Confirma", "Excluir cliente?"):
-            database.deletar_cliente_pf(self.id_original_cpf); self.resetar_interface()
+            database.deletar_cliente_pf(self.id_original_cpf)
+            self.resetar_interface()
 
     def resetar_interface(self):
-        """ Limpa a tela e volta ao modo de novo cadastro. """
         for e in self.inputs.values(): e.delete(0, 'end')
         self.id_original_cpf = None
         self.modo_edicao = False
+        
+        y_botoes = 480
         self.btn_deletar.place_forget()
         self.btn_retornar.place_forget()
-        self.btn_buscar.place(x=260, y=420)
-
+        self.btn_buscar.place(x=260, y=y_botoes)
 # =============================================================================
-# CLASSE: PESSOA JURÍDICA (PJ)
+# CLASSE: PESSOA JURÍDICA (PJ) - PADRONIZADA
 # =============================================================================
 class PessoaJuridica(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -189,12 +233,26 @@ class PessoaJuridica(ctk.CTkFrame):
         self.inputs = {}
         self.modo_edicao = False
         self.id_original_cnpj = None
-
+    
     def abrir_juridico(self):
-        """ Cria e posiciona todos os elementos da tela de Pessoa Jurídica. """
-        self.place(x=0, y=0, relwidth=1, relheight=1); self.configure(fg_color="white")
+        """ Interface PJ com cabeçalho de largura total (estilo Estoque) """
+        self.place(x=0, y=0, relwidth=1, relheight=1)
+        self.configure(fg_color="white")
         
-        # Campos específicos para Empresas
+        # --- CONFIGURAÇÃO DE COLUNA PARA PREENCHIMENTO TOTAL ---
+        self.grid_columnconfigure(1, weight=1)
+
+        # --- CABEÇALHO PADRONIZADO (STICKY EW PARA LARGURA TOTAL) ---
+        header = ctk.CTkFrame(self, fg_color="#145B06", height=50, corner_radius=0)
+        header.grid(row=0, column=0, columnspan=2, sticky="ew") # Ocupa tudo de ponta a ponta
+        header.grid_propagate(False)
+        
+        ctk.CTkLabel(header, text="🏢 CADASTRO DE PESSOA JURÍDICA", 
+                     font=("Arial", 16, "bold"), text_color="white").pack(pady=12)
+
+        # Espaçador
+        ctk.CTkLabel(self, text="", height=1).grid(row=1, column=0)
+
         campos_pj = [
             ("Razão Social:", "empresa", "Nome da empresa...", aplicar_titulo),
             ("Nome Fantasia:", "fantasia", "Nome fantasia...", aplicar_titulo),
@@ -210,61 +268,88 @@ class PessoaJuridica(ctk.CTkFrame):
             ("Email:", "email", "email@empresa.com", None)
         ]
         
+        # Loop de campos (Iniciando na row 2)
         for i, (txt, chave, msg, func) in enumerate(campos_pj):
-            ctk.CTkLabel(self, text=txt, font=("Arial", 13, "bold"), text_color="#145B06").grid(row=i, column=0, padx=10, pady=2, sticky="w")
-            entry = ctk.CTkEntry(self, width=380, height=30, placeholder_text=msg, fg_color="#F0F0F0", border_width=0, corner_radius=10, text_color="black")
-            if func: entry.bind("<KeyRelease>", lambda event, e=entry, f=func: f(e))
-            entry.grid(row=i, column=1, padx=5, pady=2, sticky="w")
+            # Adicionado padx=25 para os textos não colarem na borda esquerda do container
+            ctk.CTkLabel(self, text=txt, font=("Arial", 13, "bold"), text_color="#145B06").grid(row=i+2, column=0, padx=25, pady=4, sticky="w")
+            
+            entry = ctk.CTkEntry(self, width=380, height=30, placeholder_text=msg, 
+                                 fg_color="#F0F0F0", border_width=0, corner_radius=10, text_color="black")
+            
+            if func: 
+                entry.bind("<KeyRelease>", lambda event, e=entry, f=func: f(e))
+            
+            entry.grid(row=i+2, column=1, padx=5, pady=4, sticky="w")
             self.inputs[chave] = entry
 
-        # Botões de ação para PJ
-        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, fg_color="#2E8B57", hover_color="#145B06", command=self.fluxo_salvamento)
-        self.btn_salvar.place(x=130, y=450)
-        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, fg_color="#D2691E", hover_color="#145B06", command=self.iniciar_busca)
-        self.btn_buscar.place(x=260, y=450)
-        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, fg_color="#696969", hover_color="#145B06", command=self.resetar_interface)
-        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, fg_color="#B22222", hover_color="#145B06", command=self.excluir_pj)
+        # --- BOTÕES DE AÇÃO REPOSICIONADOS ---
+        y_botoes = 520
+        self.btn_salvar = ctk.CTkButton(self, text="SALVAR", width=120, height=35, fg_color="#2E8B57", hover_color="#145B06", font=("Arial", 12, "bold"), command=self.fluxo_salvamento)
+        self.btn_salvar.place(x=130, y=y_botoes)
+        
+        self.btn_buscar = ctk.CTkButton(self, text="BUSCAR", width=120, height=35, fg_color="#D2691E", hover_color="#145B06", font=("Arial", 12, "bold"), command=self.iniciar_busca)
+        self.btn_buscar.place(x=260, y=y_botoes)
+        
+        self.btn_retornar = ctk.CTkButton(self, text="RETORNAR", width=120, height=35, fg_color="#696969", hover_color="#145B06", font=("Arial", 12, "bold"), command=self.resetar_interface)
+        
+        self.btn_deletar = ctk.CTkButton(self, text="DELETAR", width=120, height=35, fg_color="#B22222", hover_color="#145B06", font=("Arial", 12, "bold"), command=self.excluir_pj)
 
     def iniciar_busca(self):
-        """ Busca empresas por Razão Social ou CNPJ. """
         busca = self.inputs["empresa"].get().strip() or self.inputs["cnpj"].get().strip()
         if not busca: return messagebox.showwarning("Aviso", "Digite Empresa ou CNPJ!")
         res = database.buscar_clientes_pj_flexivel(busca)
-        if res: JanelaBuscaClientes(res, self.preencher_campos, "pj")
-        else: messagebox.showinfo("Busca", "Nenhuma empresa encontrada.")
+        if res: 
+            from clientes import JanelaBuscaClientes
+            JanelaBuscaClientes(res, self.preencher_campos, "pj")
+        else: 
+            messagebox.showinfo("Busca", "Nenhuma empresa encontrada.")
 
     def preencher_campos(self, cliente):
-        """ Preenche os dados da empresa para edição. """
         self.resetar_interface()
         for k, v in cliente.items():
             if k in self.inputs: self.inputs[k].insert(0, str(v) if v else "")
         self.id_original_cnpj = cliente['cnpj']
         self.modo_edicao = True
+        
+        y_botoes = 520
         self.btn_buscar.place_forget()
-        self.btn_retornar.place(x=260, y=450)
-        self.btn_deletar.place(x=390, y=450)
+        self.btn_retornar.place(x=260, y=y_botoes)
+        self.btn_deletar.place(x=390, y=y_botoes)
 
     def fluxo_salvamento(self):
-        """ Decide entre criar nova empresa ou atualizar dados. """
-        dados = {k: v.get() for k, v in self.inputs.items()}
+        """ Executa a ação de Salvar ou Atualizar chamando as funções PJ corretas """
+        dados = {k: v.get().strip() for k, v in self.inputs.items()}
+        
         if self.modo_edicao:
-            database.atualizar_cliente_pj(dados)
-            messagebox.showinfo("Sucesso", "Atualizado!")
+            # CORREÇÃO: Usar a função de PJ
+            res = database.atualizar_cliente_pj(dados) 
+            if res:
+                messagebox.showinfo("Sucesso", "Empresa atualizada!")
+                self.resetar_interface()
         else:
-            database.salvar_cliente_pj(dados)
-            messagebox.showinfo("Sucesso", "Salvo!")
-        self.resetar_interface()
+            # CORREÇÃO: Usar a função de PJ (estava _pf antes)
+            resultado = database.salvar_cliente_pj(dados)
+            
+            if resultado == "EMAIL_INVALIDO":
+                messagebox.showerror("Erro", "E-mail inválido!")
+            elif resultado == True:
+                messagebox.showinfo("Sucesso", "Empresa cadastrada com sucesso!")
+                self.resetar_interface()
+            else:
+                # Se cair aqui, é porque o CNPJ realmente já existe ou houve erro de SQL
+                messagebox.showerror("Aviso", "Este CNPJ já está cadastrado ou dados inválidos!")
 
     def excluir_pj(self):
-        """ Exclui a empresa do banco. """
         if messagebox.askyesno("Confirma", "Excluir empresa?"):
-            database.deletar_cliente_pj(self.id_original_cnpj); self.resetar_interface()
+            database.deletar_cliente_pj(self.id_original_cnpj)
+            self.resetar_interface()
 
     def resetar_interface(self):
-        """ Limpa a tela de PJ. """
         for e in self.inputs.values(): e.delete(0, 'end')
         self.id_original_cnpj = None
         self.modo_edicao = False
+        
+        y_botoes = 520
         self.btn_deletar.place_forget()
         self.btn_retornar.place_forget()
-        self.btn_buscar.place(x=260, y=450)
+        self.btn_buscar.place(x=260, y=y_botoes)

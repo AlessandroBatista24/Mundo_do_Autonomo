@@ -1,23 +1,31 @@
 import sqlite3
+import re
 from datetime import datetime
 
-# 1. FUNÇÃO DE CONEXÃO (ESSENCIAL VIR PRIMEIRO)
+def email_valido(email):
+    """ Verifica se o e-mail segue o padrão nome@dominio.com """
+    if not email: return False 
+    padrao = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(padrao, email) is not None
+
 def conectar():
-    """ Estabelece a conexão com o arquivo do banco de dados SQLite """
     conn = sqlite3.connect("sistema_gestao.db")
-    conn.row_factory = sqlite3.Row # Permite acessar colunas pelo nome (ex: cliente['nome'])
+    conn.row_factory = sqlite3.Row 
     return conn
 
-# 2. CRIAÇÃO DO BANCO DE DADOS E TODAS AS TABELAS
 def criar_banco():
     try:
         conn = conectar()
         cursor = conn.cursor()
         
-        # ... (Tabelas de Clientes, O.S., Orçamentos, Produtos e Serviços permanecem iguais)
-        # Manter o que você já tem acima e ADICIONAR estas abaixo:
-
-        # 1. TABELA CONTAS A RECEBER (ESSENCIAL PARA O LANÇAMENTO DA O.S.)
+        # AJUSTE APENAS ESTA PARTE (Adicionando NOT NULL e UNIQUE)
+        cursor.execute("""CREATE TABLE IF NOT EXISTS clientes_pf (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL, 
+            cpf TEXT NOT NULL UNIQUE, 
+            telefone TEXT NOT NULL,
+            email TEXT NOT NULL,
+            logradouro TEXT, numero TEXT, bairro TEXT, cidade TEXT, estado TEXT, cep TEXT)""")
         cursor.execute("""CREATE TABLE IF NOT EXISTS contas_receber (
             id_receber INTEGER PRIMARY KEY AUTOINCREMENT,
             cliente TEXT NOT NULL, 
@@ -72,10 +80,13 @@ def tratar_numericos(dicionario, campos):
 # --- MÓDULO CLIENTES PESSOA FÍSICA (PF) ---
 
 def salvar_cliente_pf(dados):
-    """ Insere um novo cliente PF no banco de dados """
+    """ Insere PF apenas se o e-mail for válido """
+    # TRAVA DE SEGURANÇA
+    if not email_valido(dados.get('email')):
+        return "EMAIL_INVALIDO" 
+
     conn = conectar(); cursor = conn.cursor()
     try:
-        # CORREÇÃO: 'cidade' em vez de 'city' para bater com a tabela
         cursor.execute("""INSERT INTO clientes_pf (nome, cpf, logradouro, numero, bairro, cidade, estado, cep, telefone, email) 
             VALUES (:nome, :cpf, :logradouro, :numero, :bairro, :cidade, :estado, :cep, :telefone, :email)""", dados)
         conn.commit(); return True
@@ -84,7 +95,11 @@ def salvar_cliente_pf(dados):
     finally: conn.close()
 
 def atualizar_cliente_pf(dados):
-    """ Atualiza dados do cliente baseado no CPF """
+    """ Atualiza dados do cliente apenas se o novo e-mail for válido """
+    # TRAVA DE SEGURANÇA TAMBÉM NA EDIÇÃO
+    if not email_valido(dados.get('email')):
+        return "EMAIL_INVALIDO"
+
     conn = conectar(); cursor = conn.cursor()
     try:
         cursor.execute("""UPDATE clientes_pf SET nome=:nome, logradouro=:logradouro, numero=:numero, 
@@ -94,6 +109,7 @@ def atualizar_cliente_pf(dados):
     except Exception as e:
         print(f"Erro ao atualizar PF: {e}"); return False
     finally: conn.close()
+
 
 def deletar_cliente_pf(cpf):
     """ Remove um cliente PF pelo CPF """
@@ -108,19 +124,31 @@ def deletar_cliente_pf(cpf):
 
 # --- MÓDULO CLIENTES PESSOA JURÍDICA (PJ) ---
 
+
 def salvar_cliente_pj(dados):
-    """ Insere um novo cliente PJ no banco de dados """
+    if not email_valido(dados.get('email')):
+        return "EMAIL_INVALIDO"
+
     conn = conectar(); cursor = conn.cursor()
     try:
         cursor.execute("""INSERT INTO clientes_pj (empresa, fantasia, cnpj, inscricao, logradouro, numero, bairro, cidade, estado, cep, telefone, email) 
             VALUES (:empresa, :fantasia, :cnpj, :inscricao, :logradouro, :numero, :bairro, :cidade, :estado, :cep, :telefone, :email)""", dados)
         conn.commit(); return True
+    except sqlite3.IntegrityError:
+        # O SQLite avisa aqui se o CNPJ UNIQUE for violado
+        return "CNPJ_DUPLICADO"
     except Exception as e:
-        print(f"Erro ao salvar PJ: {e}"); return False
+        print(f"Erro Real no SQL: {e}")
+        return False
     finally: conn.close()
 
+
 def atualizar_cliente_pj(dados):
-    """ Atualiza dados do cliente PJ baseado no CNPJ """
+    """ Atualiza dados do cliente PJ apenas se o novo e-mail for válido """
+    # TRAVA DE SEGURANÇA: Impede e-mail mal formatado na edição
+    if not email_valido(dados.get('email')):
+        return "EMAIL_INVALIDO"
+
     conn = conectar(); cursor = conn.cursor()
     try:
         # O WHERE cnpj=:cnpj garante que alteramos a empresa certa
@@ -131,7 +159,7 @@ def atualizar_cliente_pj(dados):
                           telefone=:telefone, email=:email 
                           WHERE cnpj=:cnpj""", dados)
         conn.commit()
-        return cursor.rowcount > 0
+        return cursor.rowcount > 0 # Retorna True se alterou com sucesso
     except Exception as e:
         print(f"Erro ao atualizar PJ: {e}")
         return False
@@ -192,6 +220,7 @@ def atualizar_produto_composto(dados, prod_original, fab_original):
     finally:
         conn.close()
 def deletar_produto_composto(produto, fabricante):
+
     """ Remove um produto baseado no nome e fabricante """
     conn = conectar(); cursor = conn.cursor()
     try:
@@ -422,8 +451,6 @@ def baixar_conta_pagar(id_conta, dados_baixa):
     finally: 
         conn.close()
 
-
-
 # --- MÓDULO ORÇAMENTOS (SALVAMENTO) ---
 def salvar_orcamento_completo(dados_h, lista_i):
     conn = conectar(); cursor = conn.cursor()
@@ -532,8 +559,6 @@ def aprovar_e_converter_orcamento(id_orcamento):
     finally:
         conn.close()
 
-
-
 # =============================================================================
 # MÓDULO CONTAS A RECEBER
 # =============================================================================
@@ -610,11 +635,12 @@ def registrar_movimento_caixa(dados):
     finally: conn.close()
 
 def buscar_extrato_caixa(filtro="", data_inicio=None, data_fim=None):
+    """ Busca movimentações para a tabela, garantindo que o Aporte/Inicial nunca suma. """
     conn = conectar(); cursor = conn.cursor()
     from datetime import datetime
     hoje = datetime.now().strftime("%d/%m/%Y")
     
-    # 1. Padronização das tabelas (Garante que 'credor' e 'cliente' virem 'origem')
+    # Query unificada que junta todas as fontes de dinheiro
     query_base = """
         SELECT data_recebimento as data, cliente as origem, descricao, 'ENTRADA' as tipo, valor_recebido as valor, forma_recebimento as forma 
         FROM contas_receber WHERE status = 'RECEBIDO'
@@ -626,76 +652,76 @@ def buscar_extrato_caixa(filtro="", data_inicio=None, data_fim=None):
         FROM fluxo_caixa
     """
     
-    # 2. Criamos a consulta final usando a base como uma sub-tabela
-    # O filtro de texto (LIKE) agora ignora a trava de data se houver algo digitado
     sql_final = f"SELECT * FROM ({query_base}) AS extrato"
     params = []
 
+    # Lógica de Filtro: Se houver busca por texto, ignora a trava de data
     if filtro:
         sql_final += " WHERE (origem LIKE ? OR descricao LIKE ? OR forma LIKE ?)"
         f = f"%{filtro}%"
         params = [f, f, f]
     elif not data_inicio:
-        # Se NÃO houver busca por texto e NÃO houver data manual, trava no HOJE
-        sql_final += " WHERE data = ?"
+        # EXCEÇÃO DE SEGURANÇA: Mostra hoje, MAS mantém APORTES e INICIAIS sempre visíveis
+        sql_final += " WHERE data = ? OR tipo = 'APORTE' OR origem = 'INICIAL'"
         params = [hoje]
 
-    # Ordenação cronológica correta
+    # Ordenação cronológica (Ano-Mês-Dia)
     sql_final += " ORDER BY substr(data,7,4) DESC, substr(data,4,2) DESC, substr(data,1,2) DESC"
     
     cursor.execute(sql_final, params)
     res = [dict(l) for l in cursor.fetchall()]
     conn.close()
 
-    # 3. Filtro de Período via Python (Apenas se o usuário preencher as datas)
+    # Filtro de Período via Python (mais preciso para strings de data)
     if data_inicio and data_fim:
         try:
             d_ini = datetime.strptime(data_inicio, "%d/%m/%Y")
             d_fim = datetime.strptime(data_fim, "%d/%m/%Y")
-            return [m for m in res if d_ini <= datetime.strptime(m['data'], "%d/%m/%Y") <= d_fim]
-        except:
-            return res
-            
-    return res
-
-
-    # --- Filtro de Período via Python (mais seguro para datas em texto) ---
-    if data_inicio and data_fim:
-        try:
-            from datetime import datetime
-            d_ini = datetime.strptime(data_inicio, "%d/%m/%Y")
-            d_fim = datetime.strptime(data_fim, "%d/%m/%Y")
-            
-            filtrado = []
-            for m in res:
-                d_mov = datetime.strptime(m['data'], "%d/%m/%Y")
-                if d_ini <= d_mov <= d_fim:
-                    filtrado.append(m)
-            return filtrado
-        except:
-            return res # Se a data for inválida, ignora o filtro e retorna tudo
+            # Filtra o período, mas preserva o APORTE/INICIAL na lista para o saldo visual
+            return [m for m in res if (d_ini <= datetime.strptime(m['data'], "%d/%m/%Y") <= d_fim) or m['tipo'] == 'APORTE']
+        except: return res
             
     return res
 
 def calcular_resumo_caixa():
-    """ Calcula Saldos Total, do Dia e Aportes para os cards do topo """
-    extrato = buscar_extrato_caixa()
+    """ 
+    CÁLCULO INDEPENDENTE: Soma o histórico ABSOLUTO do banco. 
+    Resolve o problema do saldo zerar ao aplicar filtros.
+    """
+    conn = conectar(); cursor = conn.cursor()
     from datetime import datetime
     hoje = datetime.now().strftime("%d/%m/%Y")
     
+    # Esta query pega TUDO, sem filtros de WHERE data = hoje
+    query_total = """
+        SELECT tipo, valor, data FROM (
+            SELECT 'ENTRADA' as tipo, valor_recebido as valor, data_recebimento as data FROM contas_receber WHERE status = 'RECEBIDO'
+            UNION ALL
+            SELECT 'SAIDA' as tipo, valor_pago as valor, data_pagamento as data FROM contas_pagar WHERE status = 'PAGO'
+            UNION ALL
+            SELECT tipo, valor, data_movimento as data FROM fluxo_caixa
+        )
+    """
+    cursor.execute(query_total)
+    movs = cursor.fetchall()
+    conn.close()
+
     resumo = {"total": 0.0, "dia": 0.0, "aportes": 0.0}
 
-    for m in extrato:
+    for m in movs:
         try:
             v = float(m['valor'] or 0)
+            # 1. Saldo Total (Acumulado histórico de todo o tempo)
             if m['tipo'] in ['ENTRADA', 'APORTE']:
                 resumo['total'] += v
-                if m['data'] == hoje: resumo['dia'] += v
                 if m['tipo'] == 'APORTE': resumo['aportes'] += v
-            else: # SAIDA
+            else:
                 resumo['total'] -= v
-                if m['data'] == hoje: resumo['dia'] -= v
-        except:
-            continue
+            
+            # 2. Saldo do Dia (Apenas movimentações com a data de hoje)
+            if m['data'] == hoje:
+                if m['tipo'] in ['ENTRADA', 'APORTE']: resumo['dia'] += v
+                else: resumo['dia'] -= v
+        except: continue
             
     return resumo
