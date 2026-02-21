@@ -10,14 +10,17 @@ class OS(ctk.CTkFrame):
         super().__init__(master, **kwargs)
 
     def abrir_os(self):
+        """ Configura e exibe a tela de gestão de O.S. """
         self.place(x=0, y=0, relwidth=1, relheight=1)
         self.configure(fg_color="white")
 
+        # --- CABEÇALHO ---
         header = ctk.CTkFrame(self, fg_color="#145B06", height=50, corner_radius=0)
         header.pack(fill="x")
         ctk.CTkLabel(header, text="🛠️ GESTÃO DE ORDENS DE SERVIÇO", 
                      font=("Arial", 16, "bold"), text_color="white").pack(pady=12)
 
+        # --- ÁREA DE BUSCA ---
         search_frame = ctk.CTkFrame(self, fg_color="transparent")
         search_frame.pack(fill="x", padx=20, pady=15)
 
@@ -26,14 +29,17 @@ class OS(ctk.CTkFrame):
         self.entry_busca.pack(side="left", padx=5)
         self.entry_busca.bind("<Return>", lambda e: self.listar_pendentes())
 
-        ctk.CTkButton(search_frame, text="🔍 ATUALIZAR", width=100, fg_color="#D2691E", hover_color="#145B06", command=self.listar_pendentes).pack(side="left", padx=5)
+        ctk.CTkButton(search_frame, text="🔍 ATUALIZAR", width=100, fg_color="#D2691E", 
+                      hover_color="#145B06", command=self.listar_pendentes).pack(side="left", padx=5)
 
+        # --- LISTA DE O.S. PENDENTES ---
         self.scroll_lista = ctk.CTkScrollableFrame(self, fg_color="white", border_width=1, border_color="#E0E0E0")
         self.scroll_lista.pack(fill="both", expand=True, padx=20, pady=10)
 
         self.listar_pendentes()
 
     def listar_pendentes(self):
+        """ Busca orçamentos no banco que ainda não viraram O.S. """
         for widget in self.scroll_lista.winfo_children(): widget.destroy()
         termo = self.entry_busca.get()
         orcamentos = database.buscar_orcamentos_pendentes(termo)
@@ -49,30 +55,29 @@ class OS(ctk.CTkFrame):
             info = f"ID: {orc['id_orcamento']} | Cliente: {orc['nome_cliente']} | Total: R$ {orc['valor_geral']:.2f}"
             ctk.CTkLabel(linha, text=info, text_color="black", font=("Arial", 12, "bold")).pack(side="left", padx=15, pady=10)
 
+            # Botões de Ação
             ctk.CTkButton(linha, text="EXCLUIR", width=80, fg_color="#B22222", hover_color="#145B06", 
                           command=lambda o=orc: self.confirmar_recusa(o)).pack(side="right", padx=10)
             ctk.CTkButton(linha, text="APROVAR O.S.", width=110, fg_color="#2E8B57", hover_color="#145B06",
                           command=lambda o=orc: self.confirmar_aprovacao(o)).pack(side="right", padx=5)
 
     def confirmar_aprovacao(self, orc):
+        """ Processo de transformar Orçamento em O.S. Real """
         if messagebox.askyesno("Aprovar", f"Converter orçamento {orc['id_orcamento']} em O.S.?"):
-            # 1. Buscamos os itens antes da conversão
+            # Busca itens antes da conversão
             itens_pdf = database.buscar_itens_do_orcamento(orc['id_orcamento'])
             
-            # 2. A função agora retorna o NOVO ID (ex: 26) em vez de apenas True
+            # Converte no banco (Retorna o Novo ID da O.S.)
             novo_id_os = database.aprovar_e_converter_orcamento(orc['id_orcamento'])
             
             if novo_id_os:
-                # 3. CRIAMOS UMA CÓPIA dos dados para o PDF usar o número correto
+                # Atualiza dados para o PDF sair com o número da O.S. correta
                 dados_para_pdf = dict(orc) 
-                dados_para_pdf['id_orcamento'] = novo_id_os # Aqui trocamos o 21 pelo 26
+                dados_para_pdf['id_orcamento'] = novo_id_os
                 
-                # 4. Geramos o PDF com o número 26
                 self.gerar_pdf_os(dados_para_pdf, itens_pdf)
-                
                 messagebox.showinfo("Sucesso", f"Ordem de Serviço Nº {novo_id_os} gerada!")
                 self.listar_pendentes()
-
 
     def confirmar_recusa(self, orc):
         if messagebox.askyesno("Excluir", "Deseja deletar este orçamento?"):
@@ -80,6 +85,7 @@ class OS(ctk.CTkFrame):
                 self.listar_pendentes()
 
     def gerar_pdf_os(self, dados, itens):
+        """ Gera o documento PDF da Ordem de Serviço """
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", 'B', 16)

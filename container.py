@@ -8,6 +8,7 @@ from os_modulo import OS  # Importa a classe do novo arquivo que vamos criar
 from cont_pagar import ContasPagar  # Agora o Python vai achar o arquivo cont_pagar.py
 from cont_receber import ContasReceber  # Certifique-se que o nome do arquivo seja cont_receber.py
 from caixa import Caixa  # Importa a classe do novo arquivo caixa.py
+from relatorios import Relatorios  # Importa a classe do novo arquivo relatorios.py
 
 # =============================================================================
 # CLASSE: CABEÇALHO (LOGO E TÍTULO)
@@ -54,6 +55,7 @@ class MenuLateral(ctk.CTkFrame):
             ("CONTAS A PAGAR", self.abrir_contas_pagar),
             ("CONTAS A RECEBER", self.abrir_contas_receber),
             ("CAIXA", self.abrir_caixa),
+            ("RELATÓRIOS", self.abrir_relatorios),
         ]
 
         # Criação automatizada dos botões no menu lateral
@@ -141,7 +143,17 @@ class MenuLateral(ctk.CTkFrame):
         # 3. Chama o método para desenhar o cabeçalho, cards e extrato
         janela.abrir_caixa()
 
-
+    def abrir_relatorios(self):
+        """ Limpa a interface central e carrega o módulo de Relatórios """
+        # 1. Limpa a tela central para evitar sobreposição
+        self.limpar_interface()
+        
+        # 2. Instancia a classe de Relatórios passando o frame central como palco
+        janela = Relatorios(master=self.interface_central)
+        
+        # 3. Chama o método que desenha os filtros e a tabela de relatórios
+        janela.abrir_relatorios()
+        
 # =============================================================================
 # CLASSE: INTERFACE CENTRAL (O PALCO)
 # =============================================================================

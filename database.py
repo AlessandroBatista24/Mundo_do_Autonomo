@@ -2,6 +2,8 @@ import sqlite3
 import re
 from datetime import datetime
 
+hoje = datetime.now().strftime("%d/%m/%Y") # Gera obrigatoriamente 21/02/2026
+
 def email_valido(email):
     """ Verifica se o e-mail segue o padrão nome@dominio.com """
     if not email: return False 
@@ -19,24 +21,28 @@ def criar_banco():
         cursor = conn.cursor()
         
         # AJUSTE APENAS ESTA PARTE (Adicionando NOT NULL e UNIQUE)
-        cursor.execute("""CREATE TABLE IF NOT EXISTS clientes_pf (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL, 
-            cpf TEXT NOT NULL UNIQUE, 
-            telefone TEXT NOT NULL,
-            email TEXT NOT NULL,
-            logradouro TEXT, numero TEXT, bairro TEXT, cidade TEXT, estado TEXT, cep TEXT)""")
-        cursor.execute("""CREATE TABLE IF NOT EXISTS contas_receber (
-            id_receber INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente TEXT NOT NULL, 
-            descricao TEXT NOT NULL, 
-            id_os_origem INTEGER, 
-            data_vencimento TEXT NOT NULL, 
-            valor_total REAL NOT NULL,
-            valor_recebido REAL DEFAULT 0, 
-            data_recebimento TEXT, 
-            forma_recebimento TEXT, 
-            status TEXT DEFAULT 'PENDENTE')""")
+        cursor.execute("""CREATE TABLE IF NOT EXISTS ordens_servico (
+            id_os INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo_cliente TEXT,
+            cliente_id INTEGER,
+            nome_cliente TEXT,
+            documento TEXT,
+            endereco_completo TEXT,
+            data_emissao TEXT,
+            data_aprovacao TEXT,
+            total_produtos REAL,
+            total_servicos REAL,
+            valor_geral REAL)""")
+
+        cursor.execute("""CREATE TABLE IF NOT EXISTS os_itens (
+            id_item_os INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_os INTEGER,
+            referencia_id INTEGER,
+            tipo_item TEXT,
+            quantidade REAL,
+            valor_unitario REAL,
+            valor_total_item REAL,
+            FOREIGN KEY(id_os) REFERENCES ordens_servico(id_os))""")
 
         # 2. TABELA CONTAS A PAGAR
         cursor.execute("""CREATE TABLE IF NOT EXISTS contas_pagar (
@@ -57,6 +63,42 @@ def criar_banco():
             id_item INTEGER PRIMARY KEY AUTOINCREMENT, id_orcamento INTEGER, 
             referencia_id INTEGER, tipo_item TEXT, quantidade REAL, 
             valor_unitario REAL, valor_total_item REAL)""")
+        
+        # TABELA DE CLIENTES PF
+        cursor.execute("""CREATE TABLE IF NOT EXISTS clientes_pf (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL, cpf TEXT NOT NULL UNIQUE, 
+            telefone TEXT, email TEXT, logradouro TEXT, numero TEXT, 
+            bairro TEXT, cidade TEXT, estado TEXT, cep TEXT)""")
+
+        # TABELA DE CLIENTES PJ
+        cursor.execute("""CREATE TABLE IF NOT EXISTS clientes_pj (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            empresa TEXT NOT NULL, fantasia TEXT, cnpj TEXT NOT NULL UNIQUE, 
+            inscricao TEXT, logradouro TEXT, numero TEXT, bairro TEXT, 
+            cidade TEXT, estado TEXT, cep TEXT, telefone TEXT, email TEXT)""")
+
+        # TABELA DE PRODUTOS
+        cursor.execute("""CREATE TABLE IF NOT EXISTS produtos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            produto TEXT NOT NULL, fabricante TEXT, v_compra REAL, 
+            imposto REAL, custo_fixo REAL, margem_lucro REAL, 
+            quantidade REAL, unidade TEXT, v_venda REAL)""")
+
+        # TABELA DE SERVIÇOS
+        cursor.execute("""CREATE TABLE IF NOT EXISTS servicos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            descricao TEXT NOT NULL, v_custo REAL, v_fixo REAL, 
+            v_imposto REAL, v_margem REAL, v_final REAL)""")
+
+        # TABELA DE ORÇAMENTOS (O "PAI" DAS O.S. PENDENTES)
+        cursor.execute("""CREATE TABLE IF NOT EXISTS orcamentos (
+            id_orcamento INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo_cliente TEXT, cliente_id INTEGER, nome_cliente TEXT, 
+            documento TEXT, endereco_completo TEXT, data_emissao TEXT, 
+            validade_dias INTEGER, total_produtos REAL, total_servicos REAL, 
+            valor_geral REAL, status TEXT DEFAULT 'Pendente')""")
+
         
         conn.commit()
         conn.close()        
@@ -425,30 +467,42 @@ def buscar_extrato_caixa(filtro="", data_inicio=None, data_fim=None):
     return res
 
 
+def buscar_historico_pagar(termo=""):
+    conn = conectar(); cursor = conn.cursor()
+    # Removemos o "WHERE status = 'PENDENTE'" para o histórico mostrar TUDO
+    query = "SELECT * FROM contas_pagar"
+    params = []
+    if termo:
+        query += " WHERE (descricao LIKE ? OR credor LIKE ?)"
+        params = [f"%{termo}%", f"%{termo}%"]
+    cursor.execute(query, params)
+    res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res
+
+def buscar_historico_receber(termo=""):
+    conn = conectar(); cursor = conn.cursor()
+    query = "SELECT * FROM contas_receber"
+    params = []
+    if termo:
+        query += " WHERE (cliente LIKE ? OR descricao LIKE ?)"
+        params = [f"%{termo}%", f"%{termo}%"]
+    cursor.execute(query, params)
+    res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res
+
 def baixar_conta_pagar(id_conta, dados_baixa):
-    """ Registra o pagamento de uma conta (Baixa) """
     conn = conectar(); cursor = conn.cursor()
     try:
-        # Criamos uma cópia para não alterar o dicionário original
         d = tratar_numericos(dados_baixa.copy(), ['valor_pago'])
-        
-        # ADICIONAMOS o id_conta dentro do dicionário 'd' para o SQL encontrar
         d['id_conta'] = id_conta 
-
         cursor.execute("""UPDATE contas_pagar SET 
                           valor_pago = :valor_pago, 
                           data_pagamento = :data_pagamento, 
                           forma_pagamento = :forma_pagamento, 
                           status = 'PAGO' 
-                          WHERE id_conta = :id_conta""", d) # Agora usamos :id_conta aqui também
-        
-        conn.commit()
-        return cursor.rowcount > 0 # Retorna True se realmente alterou a linha
+                          WHERE id_conta = :id_conta""", d)
+        conn.commit(); return True
     except Exception as e:
-        print(f"Erro ao dar baixa: {e}")
-        return False
-    finally: 
-        conn.close()
+        print(f"Erro no SQL: {e}"); return False
+    finally: conn.close()
 
 # --- MÓDULO ORÇAMENTOS (SALVAMENTO) ---
 def salvar_orcamento_completo(dados_h, lista_i):
@@ -561,6 +615,38 @@ def aprovar_e_converter_orcamento(id_orcamento):
         return False
     finally:
         conn.close()
+def buscar_os_fechadas(termo=""):
+    """ Busca na tabela de O.S. (após aprovação) para histórico/reimpressão """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        if not termo:
+            cursor.execute("SELECT * FROM ordens_servico ORDER BY id_os DESC")
+        else:
+            cursor.execute("SELECT * FROM ordens_servico WHERE nome_cliente LIKE ? OR id_os LIKE ?", 
+                           (f"%{termo}%", f"%{termo}%"))
+        res = [dict(l) for l in cursor.fetchall()]
+        return res
+    except Exception as e:
+        print(f"Erro ao buscar O.S. fechadas: {e}"); return []
+    finally: conn.close()
+
+def buscar_itens_da_os(id_os):
+    """ Busca os itens (produtos/serviços) vinculados a uma O.S. específica """
+    conn = conectar(); cursor = conn.cursor()
+    try:
+        query = """
+            SELECT i.*, COALESCE(p.produto, s.descricao) as nome_item
+            FROM os_itens i
+            LEFT JOIN produtos p ON i.referencia_id = p.id AND i.tipo_item = 'produto'
+            LEFT JOIN servicos s ON i.referencia_id = s.id AND i.tipo_item = 'servico'
+            WHERE i.id_os = ? """
+        cursor.execute(query, (id_os,))
+        res = [dict(l) for l in cursor.fetchall()]
+        return res
+    except Exception as e:
+        print(f"Erro ao buscar itens da O.S.: {e}"); return []
+    finally: conn.close()
+
 
 
 # =============================================================================
@@ -640,9 +726,8 @@ def registrar_movimento_caixa(dados):
 
 def buscar_extrato_caixa(filtro="", data_inicio=None, data_fim=None):
     conn = conectar(); cursor = conn.cursor()
-    hoje = datetime.now().strftime("%d/%m/%Y")
     
-    # Query unificada
+    # Query unificada (Não mexa nela, ela está correta)
     query_base = """
         SELECT data_recebimento as data, cliente as origem, descricao, 'ENTRADA' as tipo, valor_recebido as valor, forma_recebimento as forma 
         FROM contas_receber WHERE status = 'RECEBIDO'
@@ -654,51 +739,19 @@ def buscar_extrato_caixa(filtro="", data_inicio=None, data_fim=None):
         FROM fluxo_caixa
     """
     
+    # FORÇAMOS O BANCO A TRAZER TUDO SEMPRE
+    # O filtro de texto (filtro="") será feito pelo Python no relatorios.py
     sql_final = f"SELECT * FROM ({query_base}) AS extrato"
-    params = []
-
-    # --- CORREÇÃO DA BUSCA POR NÚMERO DE O.S. ---
-    if filtro:
-        # Adicionamos a busca na coluna 'descricao', onde está escrito "Serviço O.S. Nº 26"
-        sql_final += " WHERE (origem LIKE ? OR descricao LIKE ? OR forma LIKE ?)"
-        f = f"%{filtro}%"
-        params = [f, f, f]
-    elif not data_inicio:
-        # Se não houver filtro nem data, mostra hoje e os aportes
-        sql_final += " WHERE data = ? OR tipo = 'APORTE'"
-        params = [hoje]
-
+    
     # Ordenação (Ano, Mês, Dia)
     sql_final += " ORDER BY substr(data,7,4) DESC, substr(data,4,2) DESC, substr(data,1,2) DESC"
     
-    cursor.execute(sql_final, params)
+    cursor.execute(sql_final)
     res = [dict(l) for l in cursor.fetchall()]
     conn.close()
+    
+    return res # Retorna a lista completa para o relatorios.py filtrar
 
-    # --- CORREÇÃO DO FILTRO DE DATA (PERÍODO) ---
-    if data_inicio and data_fim:
-        try:
-            # Converte as strings de busca para objetos de data reais
-            d_ini = datetime.strptime(data_inicio, "%d/%m/%Y")
-            d_fim = datetime.strptime(data_fim, "%d/%m/%Y")
-            
-            resultado_filtrado = []
-            for m in res:
-                try:
-                    # Converte a data de cada registro para comparar
-                    data_mov = datetime.strptime(m['data'], "%d/%m/%Y")
-                    if d_ini <= data_mov <= d_fim:
-                        resultado_filtrado.append(m)
-                    # Mantém aportes sempre visíveis se desejar, ou remova a linha abaixo
-                    elif m['tipo'] == 'APORTE':
-                        resultado_filtrado.append(m)
-                except:
-                    continue
-            return resultado_filtrado
-        except:
-            return res
-            
-    return res
 
 def calcular_resumo_caixa():
     """ 
@@ -742,3 +795,22 @@ def calcular_resumo_caixa():
         except: continue
             
     return resumo
+
+def buscar_historico_receber(termo=""):
+    """ Traz todos os recebimentos para o Centro de Relatórios """
+    conn = conectar(); cursor = conn.cursor()
+    # Trazemos apenas os RECEBIDOS para o histórico financeiro, ordenados pela data
+    query = """SELECT * FROM contas_receber 
+               WHERE status = 'RECEBIDO' 
+               ORDER BY substr(data_recebimento,7,4) DESC, 
+                        substr(data_recebimento,4,2) DESC, 
+                        substr(data_recebimento,1,2) DESC"""
+    cursor.execute(query)
+    res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res
+
+def buscar_historico_pagar(termo=""):
+    conn = conectar(); cursor = conn.cursor()
+    # Trazemos tudo ordenado por data de pagamento (mais recentes primeiro)
+    query = "SELECT * FROM contas_pagar WHERE status = 'PAGO' ORDER BY substr(data_pagamento,7,4) DESC, substr(data_pagamento,4,2) DESC, substr(data_pagamento,1,2) DESC"
+    cursor.execute(query)
+    res = [dict(l) for l in cursor.fetchall()]; conn.close(); return res

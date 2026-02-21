@@ -181,16 +181,24 @@ class ContasPagar(ctk.CTkFrame):
         if res:
             try:
                 hoje = datetime.now().strftime("%d/%m/%Y")
+                # CORREÇÃO: O nome da chave deve ser 'forma_pagamento' para bater com o banco
                 dados_baixa = {
                     "valor_pago": float(res['valor_pago']),
                     "data_pagamento": hoje,
-                    "forma_pagamento": res['forma']
+                    "forma_pagamento": res['forma'] # Chave corrigida aqui
                 }
+                
+                # Chama o banco passando o ID e o dicionário corrigido
                 if database.baixar_conta_pagar(id_conta, dados_baixa):
-                    messagebox.showinfo("Sucesso", f"Baixa realizada!\nValor: R$ {dados_baixa['valor_pago']:.2f}\nForma: {res['forma']}")
+                    messagebox.showinfo("Sucesso", "Pagamento registrado com sucesso!")
                     self.renderizar_tabela()
+                else:
+                    messagebox.showerror("Erro", "O banco de dados não confirmou a alteração.")
+                    
             except ValueError:
-                messagebox.showerror("Erro", "Por favor, digite um valor numérico válido.")
+                messagebox.showerror("Erro", "Valor de pagamento inválido.")
+            except Exception as e:
+                messagebox.showerror("Erro Crítico", f"Detalhe: {e}")
 
     def verificar_alertas(self):
         hoje = datetime.now().strftime("%d/%m/%Y")
